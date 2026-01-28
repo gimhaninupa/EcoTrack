@@ -8,7 +8,6 @@ export function Landing() {
     <nav className="border-b border-neutral-100 px-6 py-4">
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="h-6 w-6 rounded bg-neutral-900" />
           <span>
             Eco<span className="text-forest-500">Track</span>
           </span>
@@ -132,7 +131,6 @@ export function Landing() {
     <footer className="bg-neutral-900 text-neutral-400 py-12 px-6">
       <div className="mx-auto max-w-7xl flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-white">
-          <div className="h-6 w-6 rounded bg-white" />
           <span>
             Eco<span className="text-forest-500">Track</span>
           </span>

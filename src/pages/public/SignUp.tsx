@@ -6,19 +6,20 @@ import { Card, CardContent } from '../../components/ui/Card';
 export function SignUp() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [role, setRole] = useState<'resident' | 'admin'>('resident');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      navigate('/resident/dashboard');
+      navigate(role === 'admin' ? '/admin/dashboard' : '/resident/dashboard');
     }, 1000);
   };
   return <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
     <div className="w-full max-w-md space-y-8">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 font-bold text-2xl tracking-tight mb-6">
-          <div className="h-8 w-8 rounded bg-neutral-900" />
           <span>
             Eco<span className="text-forest-500">Track</span>
           </span>
@@ -33,6 +34,23 @@ export function SignUp() {
 
       <Card className="border-neutral-200 shadow-lg">
         <CardContent className="pt-6">
+          <div className="flex p-1 bg-neutral-100 rounded-lg mb-6">
+            <button
+              type="button"
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${role === 'resident' ? 'bg-white shadow-sm text-forest-600' : 'text-neutral-500 hover:text-neutral-700'}`}
+              onClick={() => setRole('resident')}
+            >
+              Resident
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${role === 'admin' ? 'bg-white shadow-sm text-forest-600' : 'text-neutral-500 hover:text-neutral-700'}`}
+              onClick={() => setRole('admin')}
+            >
+              Administrator
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Input label="First name" placeholder="John" required />

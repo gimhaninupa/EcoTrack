@@ -16,6 +16,14 @@ import { ResidentSettings } from './pages/resident/Settings';
 // Admin Pages
 import { AdminDashboard } from './pages/admin/Dashboard';
 import { AdminRouteManagement } from './pages/admin/RouteManagement';
+import { AdminFleetTracking } from './pages/admin/FleetTracking';
+import { AdminIssueManagement } from './pages/admin/IssueManagement';
+import { AdminResidentDirectory } from './pages/admin/ResidentDirectory';
+import { AdminScheduleBuilder } from './pages/admin/ScheduleBuilder';
+import { AdminAnalytics } from './pages/admin/Analytics';
+import { AdminBillingManagement } from './pages/admin/BillingManagement';
+import { AdminUserManagement } from './pages/admin/UserManagement';
+import { AdminSystemSettings } from './pages/admin/SystemSettings';
 // Placeholders for remaining Admin pages
 const Placeholder = ({
   title
@@ -26,46 +34,53 @@ const Placeholder = ({
     <p className="text-neutral-500">This page is under construction.</p>
   </div>;
 import { ServiceProvider } from './context/ServiceContext';
+import { AuthProvider } from './context/AuthContext';
+import { AdminProvider } from './context/AdminContext';
 
 export default function App() {
   return (
-    <ServiceProvider>
-      <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
+    <AuthProvider>
+      <AdminProvider>
+        <ServiceProvider>
+          <Router>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
 
-          {/* Resident Routes */}
-          <Route path="/resident" element={<DashboardLayout />}>
-            <Route path="dashboard" element={<ResidentDashboard />} />
-            <Route path="schedule" element={<ResidentSchedule />} />
-            <Route path="tracking" element={<ResidentTracking />} />
-            <Route path="report" element={<ResidentReportIssue />} />
-            <Route path="history" element={<ResidentIssueHistory />} />
-            <Route path="notifications" element={<ResidentNotifications />} />
-            <Route path="billing" element={<ResidentPaymentHistory />} />
-            <Route path="settings" element={<ResidentSettings />} />
-          </Route>
+              {/* Resident Routes */}
+              <Route path="/resident" element={<DashboardLayout />}>
+                <Route path="dashboard" element={<ResidentDashboard />} />
+                <Route path="schedule" element={<ResidentSchedule />} />
+                <Route path="tracking" element={<ResidentTracking />} />
+                <Route path="report" element={<ResidentReportIssue />} />
+                <Route path="history" element={<ResidentIssueHistory />} />
+                <Route path="notifications" element={<ResidentNotifications />} />
+                <Route path="billing" element={<ResidentPaymentHistory />} />
+                <Route path="settings" element={<ResidentSettings />} />
+              </Route>
 
-          {/* Admin Routes */}
-          <Route path="/admin" element={<DashboardLayout />}>
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="routes" element={<AdminRouteManagement />} />
-            <Route path="fleet" element={<Placeholder title="Fleet Tracking" />} />
-            <Route path="issues" element={<Placeholder title="Issue Management" />} />
-            <Route path="residents" element={<Placeholder title="Resident Directory" />} />
-            <Route path="schedule" element={<Placeholder title="Schedule Builder" />} />
-            <Route path="analytics" element={<Placeholder title="Analytics" />} />
-            <Route path="billing" element={<Placeholder title="Billing Management" />} />
-            <Route path="users" element={<Placeholder title="User Management" />} />
-            <Route path="settings" element={<Placeholder title="System Settings" />} />
-          </Route>
+              {/* Admin Routes */}
+              <Route path="/admin" element={<DashboardLayout />}>
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="routes" element={<AdminRouteManagement />} />
+                <Route path="fleet" element={<AdminFleetTracking />} />
+                <Route path="issues" element={<AdminIssueManagement />} />
+                <Route path="residents" element={<AdminResidentDirectory />} />
+                <Route path="schedule" element={<AdminScheduleBuilder />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
+                <Route path="billing" element={<AdminBillingManagement />} />
+                <Route path="users" element={<AdminUserManagement />} />
+                <Route path="settings" element={<AdminSystemSettings />} />
+                <Route path="notifications" element={<AdminIssueManagement />} />
+              </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </ServiceProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
+        </ServiceProvider>
+      </AdminProvider>
+    </AuthProvider>
   );
 }

@@ -5,9 +5,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../../components/ui/Modal';
+import { useService } from '../../context/ServiceContext';
 
 export function ResidentSettings() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, updateProfile } = useAuth();
+  const { addNotification } = useService();
   const [activeTab, setActiveTab] = useState('profile');
 
   // Profile Form State
@@ -30,6 +32,14 @@ export function ResidentSettings() {
       }));
     }
   }, [user]);
+
+  const handleSaveProfile = () => {
+    const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
+    if (fullName && profileData.email) {
+      updateProfile(fullName, profileData.email);
+      addNotification('Profile Updated', 'Your profile information has been saved successfully.', 'success');
+    }
+  };
 
   /* Billing Tab Logic */
   const [cards, setCards] = useState([
@@ -114,8 +124,7 @@ export function ResidentSettings() {
             <Input
               label="Email Address"
               value={profileData.email}
-              disabled
-              className="bg-neutral-50"
+              onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
             />
             <Input
               label="Phone Number"
@@ -123,7 +132,7 @@ export function ResidentSettings() {
               onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
             />
             <div className="pt-2">
-              <Button>Save Changes</Button>
+              <Button onClick={handleSaveProfile}>Save Changes</Button>
             </div>
           </CardContent>
         </Card>

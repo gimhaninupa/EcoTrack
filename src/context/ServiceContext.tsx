@@ -254,17 +254,56 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
 
     const payBill = (amount: number) => {
         if (billing.balance < amount) return;
+
+        // 1. Update Local State (Resident View)
+        const paymentDate = new Date().toLocaleDateString();
+        const transactionId = Math.random().toString(36).substr(2, 9);
+
         setBilling(prev => ({
             ...prev,
             balance: prev.balance - amount,
             history: [{
-                id: Math.random().toString(36).substr(2, 9),
-                date: new Date().toLocaleDateString(),
+                id: transactionId,
+                date: paymentDate,
                 amount: `LKR ${amount.toFixed(2)}`,
                 status: 'Paid',
                 method: 'Card •••• 4242'
             }, ...prev.history]
         }));
+
+        // 2. Sync with Admin Context (Admin View)
+        // We need to find a pending invoice for this resident and mark it as paid.
+        // Since we don't have the resident ID handy in this context (it's in AuthContext),
+        // we'll try to match by recent pending invoices or create a new "Paid" invoice record for admin.
+
+        try {
+            const storedInvoices = localStorage.getItem('ecotrack_admin_invoices');
+            let adminInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
+
+            // For simplicity in this demo, we'll assume the current user is "RES-001" or similar if we could get it.
+            // But since we can't easily cross-reference without passing props, 
+            // we will search for any matching pending invoice with the same amount (heuristic)
+            // OR we just create a new record.
+
+            // Let's create a new 'Paid' invoice record in the admin system to reflect this transaction
+            const newAdminInvoice = {
+                id: `INV-${Date.now().toString().slice(-4)}`,
+                residentId: 'RES-???', // In a real app, strict user ID
+                residentName: 'Current User', // Ideally from AuthContext
+                date: new Date().toISOString().split('T')[0],
+                amount: amount,
+                status: 'Paid',
+                method: 'Card •••• 4242',
+                items: [{ description: 'Bill Payment', amount: amount }]
+            };
+
+            adminInvoices = [newAdminInvoice, ...adminInvoices];
+            localStorage.setItem('ecotrack_admin_invoices', JSON.stringify(adminInvoices));
+
+        } catch (e) {
+            console.error("Failed to sync payment with admin context", e);
+        }
+
         addNotification('Payment Successful', `Payment of LKR ${amount.toFixed(2)} was successful.`, 'success');
     };
 

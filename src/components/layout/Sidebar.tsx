@@ -93,7 +93,6 @@ export function Sidebar({
   return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-forest-100 bg-white/80 backdrop-blur-md transition-transform duration-200 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
     <div className="flex h-16 items-center px-6 border-b border-forest-100 bg-transparent">
       <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-        <div className="h-6 w-6 rounded bg-neutral-900" />
         <span>
           Eco<span className="text-forest-500">Track</span>
         </span>

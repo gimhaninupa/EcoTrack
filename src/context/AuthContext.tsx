@@ -10,6 +10,7 @@ interface AuthContextType {
     user: User | null;
     login: (email: string, role: 'resident' | 'admin') => void;
     logout: () => void;
+    updateProfile: (name: string, email: string) => void;
     isLoading: boolean;
 }
 
@@ -46,8 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('ecotrack_user');
     };
 
+    const updateProfile = (name: string, email: string) => {
+        const role = user?.role || 'resident';
+        const updatedUser = { name, email, role };
+        setUser(updatedUser);
+        localStorage.setItem('ecotrack_user', JSON.stringify(updatedUser));
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, login, logout, updateProfile, isLoading }}>
             {children}
         </AuthContext.Provider>
     );

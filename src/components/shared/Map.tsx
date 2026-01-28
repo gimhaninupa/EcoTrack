@@ -50,12 +50,8 @@ export function Map({
     }).addTo(map);
 
     // Route Polyline (Static for demo)
-    routePolylineRef.current = L.polyline(ROUTE_POINTS, {
-      color: '#228B22',
-      weight: 4,
-      opacity: 0.6,
-      dashArray: '10, 10'
-    }).addTo(map);
+    // Route Polyline (Static for demo) removed as per request
+    // routePolylineRef.current = L.polyline(ROUTE_POINTS, { ... }).addTo(map);
 
     // User Location Circle - Meepe
     L.circleMarker([6.8533, 80.0575], {

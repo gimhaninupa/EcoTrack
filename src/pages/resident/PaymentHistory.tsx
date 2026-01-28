@@ -127,12 +127,10 @@ export function ResidentPaymentHistory() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card className="p-6 space-y-4">
         <div className="flex items-center gap-2 text-neutral-500">
-          <DollarSign className="h-5 w-5" />
           <span className="font-medium">Current Balance</span>
         </div>
         <div>
           <div className="text-3xl font-bold text-neutral-900">LKR {billing.balance.toFixed(2)}</div>
-          <p className="text-sm text-neutral-500 mt-1">Due by Feb 15, 2026</p>
         </div>
         <Button className="w-full" onClick={handlePayClick} disabled={billing.balance <= 0}>
           {billing.balance > 0 ? 'Pay Balance' : 'All Paid'}

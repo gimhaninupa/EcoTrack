@@ -9,6 +9,7 @@ export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [role, setRole] = useState<'resident' | 'admin'>('resident');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -17,16 +18,15 @@ export function Login() {
 
     // Simulate API call
     setTimeout(() => {
-      login(formData.email, 'resident');
+      login(formData.email, role);
       setIsSubmitting(false);
-      navigate('/resident/dashboard');
+      navigate(role === 'admin' ? '/admin/dashboard' : '/resident/dashboard');
     }, 1000);
   };
   return <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
     <div className="w-full max-w-md space-y-8">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 font-bold text-2xl tracking-tight mb-6">
-          <div className="h-8 w-8 rounded bg-neutral-900" />
           <span>
             Eco<span className="text-forest-500">Track</span>
           </span>
@@ -41,6 +41,23 @@ export function Login() {
 
       <Card className="border-neutral-200 shadow-lg">
         <CardContent className="pt-6">
+          <div className="flex p-1 bg-neutral-100 rounded-lg mb-6">
+            <button
+              type="button"
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${role === 'resident' ? 'bg-white shadow-sm text-forest-600' : 'text-neutral-500 hover:text-neutral-700'}`}
+              onClick={() => setRole('resident')}
+            >
+              Resident
+            </button>
+            <button
+              type="button"
+              className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${role === 'admin' ? 'bg-white shadow-sm text-forest-600' : 'text-neutral-500 hover:text-neutral-700'}`}
+              onClick={() => setRole('admin')}
+            >
+              Administrator
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
               label="Email address"
@@ -84,20 +101,6 @@ export function Login() {
             <Link to="/signup" className="font-medium text-forest-600 hover:text-forest-500">
               Sign up
             </Link>
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-neutral-100">
-            <div className="text-xs text-center text-neutral-400 mb-3">
-              Quick Access (Demo)
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" size="sm" onClick={() => navigate('/resident/dashboard')}>
-                Resident Demo
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/admin/dashboard')}>
-                Admin Demo
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
