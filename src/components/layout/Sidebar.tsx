@@ -87,51 +87,51 @@ export function Sidebar({
   }];
   const links = type === 'resident' ? residentLinks : adminLinks;
   return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-neutral-200 bg-neutral-50 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
-      <div className="flex h-16 items-center px-6 border-b border-neutral-200 bg-white">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="h-6 w-6 rounded bg-neutral-900" />
-          <span>
-            Waste<span className="text-sky-500">OS</span>
-          </span>
-        </div>
+    <div className="flex h-16 items-center px-6 border-b border-neutral-200 bg-white">
+      <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
+        <div className="h-6 w-6 rounded bg-neutral-900" />
+        <span>
+          Eco<span className="text-forest-500">Track</span>
+        </span>
       </div>
+    </div>
 
-      <div className="flex flex-col justify-between h-[calc(100vh-4rem)] p-4">
-        <nav className="space-y-1">
-          {links.map(link => {
+    <div className="flex flex-col justify-between h-[calc(100vh-4rem)] p-4">
+      <nav className="space-y-1">
+        {links.map(link => {
           const Icon = link.icon;
           const isActive = location.pathname === link.href;
-          return <Link key={link.href} to={link.href} className={cn('flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors', isActive ? 'bg-white text-sky-600 shadow-sm ring-1 ring-neutral-200' : 'text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-900')}>
-                <Icon className={cn('h-4 w-4', isActive ? 'text-sky-500' : 'text-neutral-500')} />
-                {link.label}
-              </Link>;
+          return <Link key={link.href} to={link.href} className={cn('flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors', isActive ? 'bg-white text-forest-600 shadow-sm ring-1 ring-neutral-200' : 'text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-900')}>
+            <Icon className={cn('h-4 w-4', isActive ? 'text-forest-500' : 'text-neutral-500')} />
+            {link.label}
+          </Link>;
         })}
-        </nav>
+      </nav>
 
-        <div className="border-t border-neutral-200 pt-4 mt-4">
-          <div className="px-3 py-2 mb-2">
-            <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
-              Current User
+      <div className="border-t border-neutral-200 pt-4 mt-4">
+        <div className="px-3 py-2 mb-2">
+          <div className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2">
+            Current User
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold">
+              JD
             </div>
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold">
-                JD
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-neutral-900">
-                  John Doe
-                </span>
-                <span className="text-xs text-neutral-500 capitalize">
-                  {type}
-                </span>
-              </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-neutral-900">
+                John Doe
+              </span>
+              <span className="text-xs text-neutral-500 capitalize">
+                {type}
+              </span>
             </div>
           </div>
-          <Link to="/login" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </Link>
         </div>
+        <Link to="/login" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+          <LogOut className="h-4 w-4" />
+          Sign Out
+        </Link>
       </div>
-    </aside>;
+    </div>
+  </aside>;
 }
