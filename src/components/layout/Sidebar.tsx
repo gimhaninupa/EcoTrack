@@ -1,7 +1,9 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Calendar, Map, AlertCircle, History, Bell, CreditCard, Settings, Truck, Users, FileText, BarChart3, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+
 interface SidebarProps {
   isOpen: boolean;
   type: 'resident' | 'admin';
@@ -11,6 +13,8 @@ export function Sidebar({
   type
 }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const residentLinks = [{
     href: '/resident/dashboard',
     label: 'Dashboard',
@@ -86,8 +90,8 @@ export function Sidebar({
     icon: Settings
   }];
   const links = type === 'resident' ? residentLinks : adminLinks;
-  return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-neutral-200 bg-neutral-50 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
-    <div className="flex h-16 items-center px-6 border-b border-neutral-200 bg-white">
+  return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-forest-100 bg-white/80 backdrop-blur-md transition-transform duration-200 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+    <div className="flex h-16 items-center px-6 border-b border-forest-100 bg-transparent">
       <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
         <div className="h-6 w-6 rounded bg-neutral-900" />
         <span>
@@ -115,22 +119,28 @@ export function Sidebar({
           </div>
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold">
-              JD
+              {user ? user.name.split(' ').map(n => n[0]).join('').substring(0, 2) : 'G'}
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-medium text-neutral-900">
-                John Doe
+                {user ? user.name : 'Guest'}
               </span>
               <span className="text-xs text-neutral-500 capitalize">
-                {type}
+                {user ? user.role : 'Visitor'}
               </span>
             </div>
           </div>
         </div>
-        <Link to="/login" className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+        <button
+          onClick={() => {
+            logout();
+            navigate('/');
+          }}
+          className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+        >
           <LogOut className="h-4 w-4" />
           Sign Out
-        </Link>
+        </button>
       </div>
     </div>
   </aside>;

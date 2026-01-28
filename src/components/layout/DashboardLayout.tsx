@@ -13,19 +13,19 @@ export function DashboardLayout() {
     return path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
   };
   return <div className="flex min-h-screen bg-neutral-50">
-      <Sidebar isOpen={sidebarOpen} type={type} />
+    <Sidebar isOpen={sidebarOpen} type={type} />
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} title={getTitle()} />
+    <div className="flex-1 flex flex-col min-w-0">
+      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} title={getTitle()} />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl animate-in fade-in duration-500 slide-in-from-bottom-4">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <div className="mx-auto max-w-7xl animate-in fade-in duration-500 slide-in-from-bottom-4">
+          <Outlet />
+        </div>
+      </main>
+    </div>
 
-      {/* Mobile overlay */}
-      {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/20 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
-    </div>;
+    {/* Mobile overlay */}
+    {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/20 lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
+  </div>;
 }

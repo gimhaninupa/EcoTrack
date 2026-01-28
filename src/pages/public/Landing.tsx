@@ -29,7 +29,7 @@ export function Landing() {
       <div className="mx-auto max-w-4xl text-center">
         <h1 className="text-5xl font-bold tracking-tight text-neutral-900 sm:text-7xl mb-8">
           Waste collection & monitoring for the{' '}
-          <span className="text-forest-500">modern city</span>.
+          <span className="text-forest-500">modern city.</span>
         </h1>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600 mb-10 leading-relaxed">
           An ultra-clean, data-forward platform for municipalities and
@@ -39,13 +39,10 @@ export function Landing() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link to="/signup">
             <Button size="lg" className="h-14 px-8 text-lg">
-              Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+              Start <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
           <Link to="/login">
-            <Button variant="outline" size="lg" className="h-14 px-8 text-lg">
-              View Demo
-            </Button>
           </Link>
         </div>
       </div>
@@ -141,7 +138,7 @@ export function Landing() {
           </span>
         </div>
         <div className="text-sm">
-          © 2024 EcoTrack Inc. All rights reserved.
+          © 2026 EcoTrack Inc. All rights reserved.
         </div>
       </div>
     </footer>

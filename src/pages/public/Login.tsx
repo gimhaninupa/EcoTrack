@@ -2,16 +2,23 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Card, CardContent } from '../../components/ui/Card';
+import { useAuth } from '../../context/AuthContext';
+
 export function Login() {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    // Mock login
+    setIsSubmitting(true);
+
+    // Simulate API call
     setTimeout(() => {
-      setIsLoading(false);
+      login(formData.email, 'resident');
+      setIsSubmitting(false);
       navigate('/resident/dashboard');
     }, 1000);
   };
@@ -35,7 +42,14 @@ export function Login() {
       <Card className="border-neutral-200 shadow-lg">
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="Email address" type="email" placeholder="name@example.com" required />
+            <Input
+              label="Email address"
+              type="email"
+              placeholder="name@example.com"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            />
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-neutral-700">
@@ -45,7 +59,12 @@ export function Login() {
                   Forgot password?
                 </Link>
               </div>
-              <Input type="password" required />
+              <Input
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+              />
             </div>
 
             <div className="flex items-center space-x-2">
@@ -55,7 +74,7 @@ export function Login() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full" isLoading={isLoading}>
+            <Button type="submit" className="w-full" isLoading={isSubmitting}>
               Sign in
             </Button>
           </form>

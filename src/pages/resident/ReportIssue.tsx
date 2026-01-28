@@ -4,8 +4,13 @@ import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Upload, X } from 'lucide-react';
+import { useService } from '../../context/ServiceContext';
+
 export function ResidentReportIssue() {
+  const { reportIssue } = useService();
   const [images, setImages] = useState<string[]>([]);
+  const [type, setType] = useState('missed');
+  const [description, setDescription] = useState('');
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       // Mock upload
@@ -13,6 +18,20 @@ export function ResidentReportIssue() {
       setImages([...images, url]);
     }
   };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    reportIssue({
+      type: type === 'missed' ? 'Missed Pickup' : type === 'damaged' ? 'Damaged Bin' : type === 'illegal' ? 'Illegal Dumping' : 'Other',
+      description,
+      images
+    });
+    // Reset form
+    setImages([]);
+    setDescription('');
+    setType('missed');
+  };
+
   return <div className="max-w-2xl mx-auto space-y-6">
     <div>
       <h2 className="text-2xl font-bold tracking-tight">Report an Issue</h2>
@@ -26,26 +45,36 @@ export function ResidentReportIssue() {
         <CardTitle>Issue Details</CardTitle>
       </CardHeader>
       <CardContent>
-        <form className="space-y-6">
-          <Select label="Issue Type" options={[{
-            value: 'missed',
-            label: 'Missed Pickup'
-          }, {
-            value: 'damaged',
-            label: 'Damaged Bin'
-          }, {
-            value: 'illegal',
-            label: 'Illegal Dumping'
-          }, {
-            value: 'other',
-            label: 'Other'
-          }]} />
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <Select
+            label="Issue Type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            options={[{
+              value: 'missed',
+              label: 'Missed Pickup'
+            }, {
+              value: 'damaged',
+              label: 'Damaged Bin'
+            }, {
+              value: 'illegal',
+              label: 'Illegal Dumping'
+            }, {
+              value: 'other',
+              label: 'Other'
+            }]} />
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-neutral-700">
               Description
             </label>
-            <textarea className="flex min-h-[120px] w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500" placeholder="Please describe the issue in detail..." />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="flex min-h-[120px] w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:border-forest-500 focus:outline-none focus:ring-1 focus:ring-forest-500"
+              placeholder="Please describe the issue in detail..."
+              required
+            />
           </div>
 
           <div className="space-y-3">

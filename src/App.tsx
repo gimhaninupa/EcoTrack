@@ -25,41 +25,47 @@ const Placeholder = ({
     <h2 className="text-2xl font-bold mb-4">{title}</h2>
     <p className="text-neutral-500">This page is under construction.</p>
   </div>;
+import { ServiceProvider } from './context/ServiceContext';
+
 export default function App() {
-  return <Router>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
+  return (
+    <ServiceProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
 
-        {/* Resident Routes */}
-        <Route path="/resident" element={<DashboardLayout />}>
-          <Route path="dashboard" element={<ResidentDashboard />} />
-          <Route path="schedule" element={<ResidentSchedule />} />
-          <Route path="tracking" element={<ResidentTracking />} />
-          <Route path="report" element={<ResidentReportIssue />} />
-          <Route path="history" element={<ResidentIssueHistory />} />
-          <Route path="notifications" element={<ResidentNotifications />} />
-          <Route path="billing" element={<ResidentPaymentHistory />} />
-          <Route path="settings" element={<ResidentSettings />} />
-        </Route>
+          {/* Resident Routes */}
+          <Route path="/resident" element={<DashboardLayout />}>
+            <Route path="dashboard" element={<ResidentDashboard />} />
+            <Route path="schedule" element={<ResidentSchedule />} />
+            <Route path="tracking" element={<ResidentTracking />} />
+            <Route path="report" element={<ResidentReportIssue />} />
+            <Route path="history" element={<ResidentIssueHistory />} />
+            <Route path="notifications" element={<ResidentNotifications />} />
+            <Route path="billing" element={<ResidentPaymentHistory />} />
+            <Route path="settings" element={<ResidentSettings />} />
+          </Route>
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<DashboardLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="routes" element={<AdminRouteManagement />} />
-          <Route path="fleet" element={<Placeholder title="Fleet Tracking" />} />
-          <Route path="issues" element={<Placeholder title="Issue Management" />} />
-          <Route path="residents" element={<Placeholder title="Resident Directory" />} />
-          <Route path="schedule" element={<Placeholder title="Schedule Builder" />} />
-          <Route path="analytics" element={<Placeholder title="Analytics" />} />
-          <Route path="billing" element={<Placeholder title="Billing Management" />} />
-          <Route path="users" element={<Placeholder title="User Management" />} />
-          <Route path="settings" element={<Placeholder title="System Settings" />} />
-        </Route>
+          {/* Admin Routes */}
+          <Route path="/admin" element={<DashboardLayout />}>
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="routes" element={<AdminRouteManagement />} />
+            <Route path="fleet" element={<Placeholder title="Fleet Tracking" />} />
+            <Route path="issues" element={<Placeholder title="Issue Management" />} />
+            <Route path="residents" element={<Placeholder title="Resident Directory" />} />
+            <Route path="schedule" element={<Placeholder title="Schedule Builder" />} />
+            <Route path="analytics" element={<Placeholder title="Analytics" />} />
+            <Route path="billing" element={<Placeholder title="Billing Management" />} />
+            <Route path="users" element={<Placeholder title="User Management" />} />
+            <Route path="settings" element={<Placeholder title="System Settings" />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>;
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Router>
+    </ServiceProvider>
+  );
 }

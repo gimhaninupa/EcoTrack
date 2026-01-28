@@ -2,6 +2,7 @@ import React from 'react';
 import { Bell, Menu, Search, User } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { useNavigate, useLocation } from 'react-router-dom';
 interface HeaderProps {
   onMenuClick: () => void;
   title: string;
@@ -10,6 +11,12 @@ export function Header({
   onMenuClick,
   title
 }: HeaderProps) {
+  /* ... imports ... */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isResident = location.pathname.startsWith('/resident');
+  const basePath = isResident ? '/resident' : '/admin';
+
   return <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-neutral-200 bg-white px-6">
     <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
       <Menu className="h-5 w-5" />
@@ -25,11 +32,11 @@ export function Header({
     </div>
 
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" className="relative">
+      <Button variant="ghost" size="icon" className="relative" onClick={() => navigate(`${basePath}/notifications`)}>
         <Bell className="h-5 w-5 text-neutral-500" />
         <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-forest-500" />
       </Button>
-      <Button variant="ghost" size="icon">
+      <Button variant="ghost" size="icon" onClick={() => navigate(`${basePath}/settings`)}>
         <User className="h-5 w-5 text-neutral-500" />
       </Button>
     </div>
