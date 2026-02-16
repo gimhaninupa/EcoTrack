@@ -17,18 +17,18 @@ export function Header({
   const isResident = location.pathname.startsWith('/resident');
   const basePath = isResident ? '/resident' : '/admin';
 
-  return <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-neutral-200 bg-white px-6">
+  return <header className="sticky top-0 z-30 flex h-16 items-center gap-4 bg-white/80 backdrop-blur-md px-6 border-b border-neutral-100">
     <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuClick}>
       <Menu className="h-5 w-5" />
     </Button>
 
     <div className="flex-1">
-      <h1 className="text-lg font-semibold text-neutral-900">{title}</h1>
+      <h1 className="text-xl font-bold text-neutral-900 tracking-tight">{title}</h1>
     </div>
 
     <div className="hidden w-full max-w-sm lg:flex items-center relative">
-      <Search className="absolute left-2.5 h-4 w-4 text-neutral-500" />
-      <Input placeholder="Search (Cmd+K)" className="pl-9 bg-neutral-50 border-transparent focus:bg-white focus:border-forest-500" />
+      <Search className="absolute left-3 h-4 w-4 text-neutral-400" />
+      <Input placeholder="Search..." className="pl-10 h-10 rounded-full bg-neutral-100/50 border-transparent focus:bg-white focus:border-forest-500 focus:ring-2 focus:ring-forest-100 transition-all" />
     </div>
 
     <div className="flex items-center gap-2">

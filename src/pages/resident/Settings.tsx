@@ -8,7 +8,7 @@ import { Modal } from '../../components/ui/Modal';
 import { useService } from '../../context/ServiceContext';
 
 export function ResidentSettings() {
-  const { user, isLoading, updateProfile } = useAuth();
+  const { user, loading, updateProfile } = useAuth();
   const { addNotification } = useService();
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -28,16 +28,34 @@ export function ResidentSettings() {
         ...prev,
         firstName: first || '',
         lastName: last || '',
-        email: user.email
+        email: user.email,
+        phone: user.phone || ''
       }));
     }
   }, [user]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
+    console.log("Settings: handleSaveProfile called");
     const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
-    if (fullName && profileData.email) {
-      updateProfile(fullName, profileData.email);
+
+    if (!fullName || !profileData.email) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    try {
+      console.log("Settings: Calling updateProfile with", fullName, profileData.email, profileData.phone);
+      await updateProfile({
+        name: fullName,
+        email: profileData.email,
+        phone: profileData.phone
+      });
+      console.log("Settings: updateProfile success");
       addNotification('Profile Updated', 'Your profile information has been saved successfully.', 'success');
+    } catch (err) {
+      console.error("Settings: Failed to save profile", err);
+      // alert("Failed to update profile. Check console for details."); // Optional: verify with user preference
+      addNotification('Error', 'Failed to save profile changes.', 'error');
     }
   };
 
@@ -83,7 +101,7 @@ export function ResidentSettings() {
     setIsModalOpen(false);
   };
 
-  if (isLoading) {
+  if (loading) {
     return <div className="p-8 text-center text-neutral-500">Loading settings...</div>;
   }
 

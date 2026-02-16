@@ -2,12 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { AuthProvider } from './context/AuthContext';
+
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+console.log('Index.tsx: Mounting React App...');
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <AuthProvider>
+    <ErrorBoundary>
       <App />
-    </AuthProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );

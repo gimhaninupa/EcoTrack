@@ -90,7 +90,7 @@ export function Sidebar({
     icon: Settings
   }];
   const links = type === 'resident' ? residentLinks : adminLinks;
-  return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-forest-100 bg-white/80 backdrop-blur-md transition-transform duration-200 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
+  return <aside className={cn('fixed inset-y-0 left-0 z-40 w-64 transform border-r border-neutral-100 bg-white/90 backdrop-blur-xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0', isOpen ? 'translate-x-0' : '-translate-x-full')}>
     <div className="flex h-16 items-center px-6 border-b border-forest-100 bg-transparent">
       <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
         <span>
@@ -104,8 +104,8 @@ export function Sidebar({
         {links.map(link => {
           const Icon = link.icon;
           const isActive = location.pathname === link.href;
-          return <Link key={link.href} to={link.href} className={cn('flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors', isActive ? 'bg-white text-forest-600 shadow-sm ring-1 ring-neutral-200' : 'text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-900')}>
-            <Icon className={cn('h-4 w-4', isActive ? 'text-forest-500' : 'text-neutral-500')} />
+          return <Link key={link.href} to={link.href} className={cn('flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200', isActive ? 'bg-forest-50 text-forest-700 shadow-sm' : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900')}>
+            <Icon className={cn('h-5 w-5', isActive ? 'text-forest-600' : 'text-neutral-400 group-hover:text-neutral-600')} />
             {link.label}
           </Link>;
         })}
@@ -132,12 +132,15 @@ export function Sidebar({
         </div>
         <button
           onClick={() => {
-            logout();
             navigate('/');
+            // Add a small delay to allow unmounting to complete before signing out
+            setTimeout(() => {
+              logout();
+            }, 100);
           }}
-          className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          className="w-full flex items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-5 w-5" />
           Sign Out
         </button>
       </div>

@@ -1,9 +1,13 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/public/Landing';
 import { Login } from './pages/public/Login';
+import { LoginResident } from './pages/public/LoginResident';
+import { LoginAdmin } from './pages/public/LoginAdmin';
 import { SignUp } from './pages/public/SignUp';
+import { SignUpResident } from './pages/public/SignUpResident';
+import { SignUpAdmin } from './pages/public/SignUpAdmin';
 import { DashboardLayout } from './components/layout/DashboardLayout';
+
 // Resident Pages
 import { ResidentDashboard } from './pages/resident/Dashboard';
 import { ResidentSchedule } from './pages/resident/Schedule';
@@ -24,20 +28,12 @@ import { AdminAnalytics } from './pages/admin/Analytics';
 import { AdminBillingManagement } from './pages/admin/BillingManagement';
 import { AdminUserManagement } from './pages/admin/UserManagement';
 import { AdminSystemSettings } from './pages/admin/SystemSettings';
-// Placeholders for remaining Admin pages
-const Placeholder = ({
-  title
-}: {
-  title: string;
-}) => <div className="p-4">
-    <h2 className="text-2xl font-bold mb-4">{title}</h2>
-    <p className="text-neutral-500">This page is under construction.</p>
-  </div>;
 import { ServiceProvider } from './context/ServiceContext';
 import { AuthProvider } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 export default function App() {
+  console.log('App.tsx: Rendering App component...');
   return (
     <AuthProvider>
       <AdminProvider>
@@ -47,7 +43,11 @@ export default function App() {
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/login/resident" element={<LoginResident />} />
+              <Route path="/login/admin" element={<LoginAdmin />} />
               <Route path="/signup" element={<SignUp />} />
+              <Route path="/signup/resident" element={<SignUpResident />} />
+              <Route path="/signup/admin" element={<SignUpAdmin />} />
 
               {/* Resident Routes */}
               <Route path="/resident" element={<DashboardLayout />}>
