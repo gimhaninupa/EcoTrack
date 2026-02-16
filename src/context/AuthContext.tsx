@@ -35,49 +35,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         console.log('AuthContext: Setting up observer...');
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            console.log('AuthContext: Auth State Changed', firebaseUser);
-            if (firebaseUser) {
-                try {
-                    let userProfile = await userService.getUserProfile(firebaseUser.uid);
+            console.log('AuthContext: Auth State Changed', firebaseUser?.uid);
 
-                    if (!userProfile) {
-                        console.log('AuthContext: User profile not found, creating default profile...');
-                        // Create default profile
-                        const newProfile: User = {
-                            uid: firebaseUser.uid,
-                            name: firebaseUser.displayName || 'User',
-                            email: firebaseUser.email || '',
-                            role: 'resident', // Default role
-                            createdAt: new Date().toISOString()
-                        } as User;
+            // If firebaseUser is null, user is logged out
+            if (!firebaseUser) {
+                setUser(null);
+                setLoading(false);
+                return;
+            }
 
-                        // Try to save to Firestore
-                        try {
-                            await userService.createUserProfile(firebaseUser.uid, newProfile);
-                            console.log('AuthContext: Default profile created in Firestore');
-                        } catch (createError) {
-                            console.error('AuthContext: Failed to save default profile to Firestore', createError);
-                            // Proceed with local state anyway so app doesn't crash
-                        }
+            // Optimization: If we already have the user loaded and UID matches, 
+            // don't re-fetch from Firestore unless necessary.
+            // However, on page reload 'user' state is null, so we need to fetch.
+            // We can rely on the fact that if 'user' is null, we need to fetch.
+            // If 'user' exists and uid matches, we might skip, BUT firebaseUser might have updates.
+            // A safe compromise: Always fetch on meaningful auth change or init.
 
-                        userProfile = newProfile;
-                    }
+            // To prevent infinite loops with updateProfile:
+            // updateProfile in this context updates local state manually.
+            // If onAuthStateChanged fires due to token refresh, we might want to skip full re-fetch
+            // if we are confident data is fresh. 
+            // For now, let's just ensure we handle errors gracefully.
 
-                    setUser(userProfile as User);
-                } catch (error) {
-                    console.error('Error fetching/creating user profile:', error);
-                    // Fallback to a basic user object from Auth so the user isn't locked out
-                    setUser({
+            try {
+                let userProfile = await userService.getUserProfile(firebaseUser.uid);
+
+                if (!userProfile) {
+                    console.log('AuthContext: User profile not found, creating default profile...');
+                    const newProfile: User = {
                         uid: firebaseUser.uid,
                         name: firebaseUser.displayName || 'User',
                         email: firebaseUser.email || '',
-                        role: 'resident'
-                    } as User);
+                        role: 'resident',
+                        createdAt: new Date().toISOString()
+                    } as User;
+
+                    try {
+                        await userService.createUserProfile(firebaseUser.uid, newProfile);
+                        console.log('AuthContext: Default profile created in Firestore');
+                    } catch (createError) {
+                        console.error('AuthContext: Failed to save default profile to Firestore', createError);
+                    }
+                    userProfile = newProfile;
                 }
-            } else {
-                setUser(null);
+
+                setUser(userProfile as User);
+            } catch (error) {
+                console.error('Error fetching/creating user profile:', error);
+                setUser({
+                    uid: firebaseUser.uid,
+                    name: firebaseUser.displayName || 'User',
+                    email: firebaseUser.email || '',
+                    role: 'resident'
+                } as User);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -91,17 +104,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("AuthContext: updateProfile called for", user?.uid, data);
         if (!user || !auth.currentUser) {
             console.error("AuthContext: No user available to update");
-            return;
+            throw new Error("No user logged in");
         }
 
         try {
             console.log("AuthContext: Updating in Firestore...");
+            // 1. Update Firestore
             await userService.updateUserProfile(user.uid, data);
 
-            console.log("AuthContext: Updating local state...");
+            // 2. Update Local State directly to prevent unnecessary re-fetches
             setUser(prev => prev ? { ...prev, ...data } : null);
+
+            console.log("AuthContext: Profile updated successfully");
         } catch (error) {
-            console.error("AuthContext: Failed to update profile in context", error);
+            console.error("AuthContext: Failed to update profile:", error);
             throw error;
         }
     };
@@ -109,8 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = async () => {
         try {
             await authService.logoutUser();
+            setUser(null);
         } catch (error) {
             console.error("AuthContext: Logout failed", error);
+            throw error;
         }
     };
 

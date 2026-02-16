@@ -273,9 +273,9 @@ export function AdminDashboard() {
                         }`} />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-neutral-900 text-sm">Service Request</h4>
-                          <span className="text-xs text-neutral-400">
-                            ID: {request.clientId.substring(0, 8)}
+                          <h4 className="font-semibold text-neutral-900 text-sm">{request.clientName || 'Unknown User'}</h4>
+                          <span className="text-xs text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded">
+                            {request.clientAddress || 'No Location'}
                           </span>
                         </div>
                         <div className="mt-1">

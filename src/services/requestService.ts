@@ -13,12 +13,14 @@ import {
 
 export const requestService = {
     // Create a new request (Client)
-    async createRequest(clientId: string, serviceId: string, adminId: string) {
+    async createRequest(clientId: string, serviceId: string, adminId: string, clientName: string, clientAddress: string) {
         try {
             await addDoc(collection(db, "requests"), {
                 clientId,
                 serviceId,
                 adminId,
+                clientName,
+                clientAddress,
                 status: "pending",
                 createdAt: serverTimestamp()
             });

@@ -8,9 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 console.log('Index.tsx: Mounting React App...');
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
 );

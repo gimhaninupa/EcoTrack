@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Calendar, Clock, Truck, Plus, Search, MapPin, FileText } from 'lucide-react';
@@ -45,7 +45,12 @@ export function ResidentDashboard() {
 
     setIsLoading(true);
     try {
-      await requestService.createRequest(user.uid, service.id, service.adminId);
+      if (!user.name || !user.location) {
+        alert("Please update your profile with Name and Location in Settings before requesting a service.");
+        setIsLoading(false);
+        return;
+      }
+      await requestService.createRequest(user.uid, service.id, service.adminId, user.name, user.location);
       alert('Service requested successfully!');
     } catch (error) {
       console.error(error);

@@ -11,6 +11,7 @@ export function ResidentSettings() {
   const { user, loading, updateProfile } = useAuth();
   const { addNotification } = useService();
   const [activeTab, setActiveTab] = useState('profile');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Profile Form State
   const [profileData, setProfileData] = useState({
@@ -37,14 +38,15 @@ export function ResidentSettings() {
   const handleSaveProfile = async () => {
     console.log("Settings: handleSaveProfile called");
     const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
+    console.log("Settings: Saving profile data:", { fullName, email: profileData.email, phone: profileData.phone });
 
     if (!fullName || !profileData.email) {
-      alert("Please fill in all fields");
+      alert("Please fill in all fields (Name and Email are required)");
       return;
     }
 
     try {
-      console.log("Settings: Calling updateProfile with", fullName, profileData.email, profileData.phone);
+      setIsLoading(true);
       await updateProfile({
         name: fullName,
         email: profileData.email,
@@ -52,10 +54,13 @@ export function ResidentSettings() {
       });
       console.log("Settings: updateProfile success");
       addNotification('Profile Updated', 'Your profile information has been saved successfully.', 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error("Settings: Failed to save profile", err);
-      // alert("Failed to update profile. Check console for details."); // Optional: verify with user preference
-      addNotification('Error', 'Failed to save profile changes.', 'error');
+      // Show explicit alert for debugging if notification system fails
+      alert(`Failed to save changes: ${err.message || 'Unknown error'}`);
+      addNotification('Error', `Failed to save profile changes: ${err.message}`, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -150,7 +155,7 @@ export function ResidentSettings() {
               onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
             />
             <div className="pt-2">
-              <Button onClick={handleSaveProfile}>Save Changes</Button>
+              <Button onClick={handleSaveProfile} disabled={isLoading} isLoading={isLoading}>Save Changes</Button>
             </div>
           </CardContent>
         </Card>
