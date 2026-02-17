@@ -25,11 +25,11 @@ export const userService = {
             if (docSnap.exists()) {
                 return docSnap.data();
             } else {
-                return null;
+                return null; // Truly doesn't exist
             }
         } catch (error) {
             console.error("Error fetching user profile:", error);
-            return null;
+            throw error; // Rethrow so AuthContext knows it failed vs not found
         }
     },
 

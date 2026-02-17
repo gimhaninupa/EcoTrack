@@ -62,7 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // SUPER ADMIN CHECK (Hardcoded Security)
                 const isSuperAdmin = firebaseUser.email?.toLowerCase() === 'admin@ecotrack.lk';
 
-                let userProfile = await userService.getUserProfile(firebaseUser.uid);
+                let userProfile;
+                try {
+                    userProfile = await userService.getUserProfile(firebaseUser.uid);
+                } catch (err) {
+                    console.error("AuthContext: Critical error fetching profile", err);
+                    // Don't overwrite with default if it's a fetch error!
+                    // Just set available auth info
+                    setUser({
+                        uid: firebaseUser.uid,
+                        name: firebaseUser.displayName || 'User',
+                        email: firebaseUser.email || '',
+                        role: isSuperAdmin ? 'admin' : 'resident'
+                    } as User);
+                    setLoading(false);
+                    return;
+                }
 
                 if (!userProfile) {
                     console.log('AuthContext: User profile not found, creating default profile...');
