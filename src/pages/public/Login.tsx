@@ -10,12 +10,23 @@ import { userService } from '../../services/userService';
 export function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
+
+  // 1. Fix Clean Redirect (Race Condition Fix)
+  React.useEffect(() => {
+    if (user) {
+      if (user.role === 'resident') {
+        navigate('/resident/dashboard', { replace: true });
+      }
+      // Note: We don't redirect admins here because this form explicitly blocks them below.
+      // But if they are ALREADY logged in as admin and land here, they might just stay here.
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,22 +35,21 @@ export function Login() {
 
     try {
       // 1. Authenticate
-      const user = await login(formData.email, formData.password);
+      // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
+      // The useEffect above will handle the redirect for residents once 'user' is set.
+      const userCredential = await login(formData.email, formData.password);
 
-      // 2. Check Role
-      const userProfile = await userService.getUserProfile(user.uid);
+      // 2. Initial Admin Check (for immediate feedback before context updates)
+      // We still check this to show the error message for admins trying to use this form.
+      // We can check the email directly or fetch profile if needed for edge cases.
+      const isSuperAdmin = formData.email.toLowerCase() === 'admin@ecotrack.lk';
 
-      // SUPER ADMIN CHECK (Hardcoded Security)
-      const isSuperAdmin = formData.email?.toLowerCase() === 'admin@ecotrack.lk';
-      const role = isSuperAdmin ? 'admin' : (userProfile?.role || 'resident');
-
-      if (role === 'admin') {
-        setError("Access Denied: This login is for Residents only.");
-        // Optional: Logout the admin session so they don't get stuck
+      if (isSuperAdmin) {
+        setError("Access Denied: This login is for Residents only. Admins use /admin/login");
+        // Optionally logout immediately to clear the session so they don't get stuck
         // await logout(); 
-      } else {
-        navigate('/resident/dashboard');
       }
+
     } catch (error: any) {
       console.error(error);
       setError(error.message || 'Login failed. Please check your credentials.');
