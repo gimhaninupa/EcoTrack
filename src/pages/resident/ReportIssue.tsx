@@ -19,9 +19,9 @@ export function ResidentReportIssue() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    reportIssue({
+    await reportIssue({
       type: type === 'missed' ? 'Missed Pickup' : type === 'damaged' ? 'Damaged Bin' : type === 'illegal' ? 'Illegal Dumping' : 'Other',
       description,
       images

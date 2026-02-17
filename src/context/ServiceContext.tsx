@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
+import { issueService, Issue as ServiceIssue } from '../services/issueService';
+import { pickupService } from '../services/pickupService';
+import { billingService } from '../services/billingService';
 
 export interface Pickup {
     id: string;
@@ -9,10 +13,10 @@ export interface Pickup {
 }
 
 export const WASTE_PRICES = {
-    'Waste': 500,
-    'Recycling': 300,
-    'Hazardous': 2000,
-    'Organic': 400
+    'Waste': 1500,
+    'Recycling': 1300,
+    'Hazardous': 3000,
+    'Organic': 1400
 };
 
 export interface TrackingStatus {
@@ -43,14 +47,8 @@ export interface Notification {
     type: 'info' | 'success' | 'warning' | 'error';
 }
 
-export interface Issue {
-    id: string;
-    type: string;
-    description: string;
-    date: string;
-    status: 'Pending' | 'In Review' | 'Resolved';
-    images: string[];
-}
+// Re-export or alias if needed, but we'll try to align with issueService
+export interface Issue extends ServiceIssue { }
 
 export interface PaymentMethod {
     id: string;
@@ -74,14 +72,25 @@ export interface BillingState {
     history: Transaction[];
 }
 
+export interface Service {
+    id: string;
+    name: string;
+    description: string;
+    frequency: string;
+    area: string;
+    nextCollection: string;
+}
+
 interface ServiceContextType {
+    services: Service[];
     pickups: Pickup[];
     activeTracking: TrackingStatus | null;
     notifications: Notification[];
     issues: Issue[];
     billing: BillingState;
+    createService: (service: Omit<Service, 'id'>) => void;
     schedulePickup: (date: Date, type: Pickup['type'], location: string) => void;
-    reportIssue: (issue: Omit<Issue, 'id' | 'status' | 'date'>) => void;
+    reportIssue: (issue: Omit<Issue, 'id' | 'status' | 'date' | 'createdAt' | 'userId' | 'residentName' | 'address' | 'priority'>) => Promise<void>;
     startTracking: (pickupId: string) => void;
     simulateMovement: () => void;
     addNotification: (title: string, message: string, type?: Notification['type']) => void;
@@ -92,6 +101,7 @@ interface ServiceContextType {
 const ServiceContext = createContext<ServiceContextType | undefined>(undefined);
 
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
+    const { user } = useAuth();
     const [pickups, setPickups] = useState<Pickup[]>([]);
     const [activeTracking, setActiveTracking] = useState<TrackingStatus | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -102,8 +112,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         history: []
     });
 
-    // Load from local storage on init
-    // Load from local storage on init
+    // Load from local storage on init (keeping pickups/billing generic for now)
     useEffect(() => {
         const stored = localStorage.getItem('ecotrack_pickups');
         if (stored) {
@@ -112,18 +121,49 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 date: new Date(p.date)
             })));
         }
-
-        const storedIssues = localStorage.getItem('ecotrack_issues');
-        if (storedIssues) {
-            setIssues(JSON.parse(storedIssues));
-        }
     }, []);
 
-    // Save to local storage on change
+    // Subscribe to User Pickups
+    useEffect(() => {
+        if (!user) {
+            setPickups([]);
+            return;
+        }
+
+        const unsubscribe = pickupService.subscribeToUserPickups(user.uid, (fetchedPickups) => {
+            // Map service Pickup to context Pickup
+            const mappedPickups: Pickup[] = fetchedPickups.map(p => ({
+                id: p.id || 'unknown',
+                date: new Date(p.date), // Convert string back to Date object for UI
+                type: p.type,
+                status: p.status,
+                location: p.location
+            }));
+            setPickups(mappedPickups);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Subscribe to User Issues
+    useEffect(() => {
+        if (!user) {
+            setIssues([]);
+            return;
+        }
+
+        const unsubscribe = issueService.subscribeToUserIssues(user.uid, (fetchedIssues) => {
+            setIssues(fetchedIssues);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+
+    // Save pickups only
     useEffect(() => {
         localStorage.setItem('ecotrack_pickups', JSON.stringify(pickups));
-        localStorage.setItem('ecotrack_issues', JSON.stringify(issues));
-    }, [pickups, issues]);
+    }, [pickups]);
 
     const addNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
         const newNotification: Notification = {
@@ -137,25 +177,25 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         setNotifications(prev => [newNotification, ...prev]);
     };
 
-    const schedulePickup = (date: Date, type: Pickup['type'], location: string) => {
-        const cost = WASTE_PRICES[type] || 0;
-        const newPickup: Pickup = {
-            id: Math.random().toString(36).substr(2, 9),
-            date,
-            type,
-            status: 'Scheduled',
-            location
-        };
-        // Sort by date
-        setPickups(prev => [...prev, newPickup].sort((a, b) => a.date.getTime() - b.date.getTime()));
+    const schedulePickup = async (date: Date, type: Pickup['type']) => {
+        if (!user) {
+            addNotification('Error', 'You must be logged in to schedule a pickup.', 'error');
+            return;
+        }
 
-        // Add charge to balance
-        setBilling(prev => ({
-            ...prev,
-            balance: prev.balance + cost
-        }));
-
-        addNotification('Pickup Scheduled', `Your ${type} pickup has been scheduled for ${date.toLocaleDateString()}. Added charge: LKR ${cost.toFixed(2)}`, 'success');
+        try {
+            await pickupService.createPickup({
+                userId: user.uid,
+                residentName: user.name || 'Anonymous',
+                date: date.toISOString(), // Store as ISO string in Firestore
+                type,
+                location: user.address || 'Unknown Location',
+            });
+            addNotification('Pickup Scheduled', `Your ${type} pickup has been scheduled for ${date.toLocaleDateString()}.`, 'success');
+        } catch (error) {
+            console.error(error);
+            addNotification('Error', 'Failed to schedule pickup.', 'error');
+        }
     };
 
     const startTracking = (pickupId: string) => {
@@ -175,15 +215,27 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         addNotification('Tracking Started', `Real-time tracking is now active for your pickup from Meepe to ${destination}.`, 'info');
     };
 
-    const reportIssue = (issueData: Omit<Issue, 'id' | 'status' | 'date'>) => {
-        const newIssue: Issue = {
-            id: Math.random().toString(36).substr(2, 9).toUpperCase(),
-            ...issueData,
-            date: new Date().toLocaleDateString(),
-            status: 'Pending'
-        };
-        setIssues(prev => [newIssue, ...prev]);
-        addNotification('Issue Reported', 'Your issue has been reported successfully.', 'success');
+    const reportIssue = async (issueData: Omit<Issue, 'id' | 'status' | 'date' | 'createdAt' | 'userId' | 'residentName' | 'address' | 'priority'>) => {
+        if (!user) {
+            addNotification('Error', 'You must be logged in to report an issue.', 'error');
+            return;
+        }
+
+        try {
+            await issueService.reportIssue({
+                ...issueData,
+                userId: user.uid,
+                residentName: user.name || 'Anonymous',
+                address: user.address || 'Unknown Location',
+                date: new Date().toLocaleDateString(),
+                status: 'Open',
+                priority: 'Medium' // Default priority
+            });
+            addNotification('Issue Reported', 'Your issue has been reported successfully.', 'success');
+        } catch (error) {
+            console.error(error);
+            addNotification('Error', 'Failed to report issue. Please try again.', 'error');
+        }
     };
 
     const simulateMovement = () => {
@@ -238,6 +290,35 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         });
     };
 
+    // Services Management
+    const [services, setServices] = useState<Service[]>([
+        {
+            id: '1',
+            name: 'General Waste Collection',
+            description: 'Regular household waste pickup',
+            frequency: 'Weekly',
+            area: 'All Areas',
+            nextCollection: 'Monday, 8 AM'
+        },
+        {
+            id: '2',
+            name: 'Recycling Pickup',
+            description: 'Plastic, paper, and glass recycling',
+            frequency: 'Bi-Weekly',
+            area: 'All Areas',
+            nextCollection: 'Wednesday, 10 AM'
+        }
+    ]);
+
+    const createService = (serviceData: Omit<Service, 'id'>) => {
+        const newService = {
+            id: Math.random().toString(36).substr(2, 9),
+            ...serviceData
+        };
+        setServices(prev => [...prev, newService]);
+        addNotification('Service Created', `New service "${serviceData.name}" has been created.`, 'success');
+    };
+
     const addPaymentMethod = (method: string) => {
         setBilling(prev => ({
             ...prev,
@@ -252,66 +333,47 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         addNotification('Payment Method Added', `New payment method ending in 4242 has been added using ${method}.`, 'success');
     };
 
-    const payBill = (amount: number) => {
-        if (billing.balance < amount) return;
-
-        // 1. Update Local State (Resident View)
-        const paymentDate = new Date().toLocaleDateString();
-        const transactionId = Math.random().toString(36).substr(2, 9);
-
-        setBilling(prev => ({
-            ...prev,
-            balance: prev.balance - amount,
-            history: [{
-                id: transactionId,
-                date: paymentDate,
-                amount: `LKR ${amount.toFixed(2)}`,
-                status: 'Paid',
-                method: 'Card •••• 4242'
-            }, ...prev.history]
-        }));
-
-        // 2. Sync with Admin Context (Admin View)
-        // We need to find a pending invoice for this resident and mark it as paid.
-        // Since we don't have the resident ID handy in this context (it's in AuthContext),
-        // we'll try to match by recent pending invoices or create a new "Paid" invoice record for admin.
-
-        try {
-            const storedInvoices = localStorage.getItem('ecotrack_admin_invoices');
-            let adminInvoices = storedInvoices ? JSON.parse(storedInvoices) : [];
-
-            // For simplicity in this demo, we'll assume the current user is "RES-001" or similar if we could get it.
-            // But since we can't easily cross-reference without passing props, 
-            // we will search for any matching pending invoice with the same amount (heuristic)
-            // OR we just create a new record.
-
-            // Let's create a new 'Paid' invoice record in the admin system to reflect this transaction
-            const newAdminInvoice = {
-                id: `INV-${Date.now().toString().slice(-4)}`,
-                residentId: 'RES-???', // In a real app, strict user ID
-                residentName: 'Current User', // Ideally from AuthContext
-                date: new Date().toISOString().split('T')[0],
-                amount: amount,
-                status: 'Paid',
-                method: 'Card •••• 4242',
-                items: [{ description: 'Bill Payment', amount: amount }]
-            };
-
-            adminInvoices = [newAdminInvoice, ...adminInvoices];
-            localStorage.setItem('ecotrack_admin_invoices', JSON.stringify(adminInvoices));
-
-        } catch (e) {
-            console.error("Failed to sync payment with admin context", e);
+    const payBill = async (amount: number) => {
+        if (!user) {
+            addNotification('Error', 'You must be logged in to pay bills.', 'error');
+            return;
         }
 
-        addNotification('Payment Successful', `Payment of LKR ${amount.toFixed(2)} was successful.`, 'success');
+        try {
+            await billingService.createPayment({
+                userId: user.uid,
+                residentName: user.name || 'Anonymous',
+                amount: amount,
+                method: 'Credit Card', // Hardcoded for now
+                status: 'Paid',
+                date: new Date().toISOString().split('T')[0]
+            });
+
+            // Update local state
+            setBilling(prev => ({
+                ...prev,
+                balance: Math.max(0, prev.balance - amount),
+                history: [{
+                    id: Math.random().toString(36).substr(2, 9),
+                    date: new Date().toLocaleDateString(),
+                    amount: `LKR ${amount.toFixed(2)}`,
+                    status: 'Paid',
+                    method: 'Credit Card'
+                }, ...prev.history]
+            }));
+
+            addNotification('Payment Successful', `Payment of LKR ${amount.toFixed(2)} was successful.`, 'success');
+        } catch (error) {
+            console.error("Payment failed", error);
+            addNotification('Error', 'Payment failed. Please try again.', 'error');
+        }
     };
 
     return (
         <ServiceContext.Provider value={{
-            pickups, activeTracking, notifications, billing, issues,
+            services, pickups, activeTracking, notifications, billing, issues,
             schedulePickup, startTracking, simulateMovement, addNotification,
-            addPaymentMethod, payBill, reportIssue
+            addPaymentMethod, payBill, reportIssue, createService
         }}>
             {children}
         </ServiceContext.Provider>

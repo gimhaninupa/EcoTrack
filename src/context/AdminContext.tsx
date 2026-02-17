@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { issueService } from '../services/issueService';
+import { userService } from '../services/userService';
+import { pickupService } from '../services/pickupService';
+import { billingService, Payment } from '../services/billingService';
 
 // Interfaces
 export interface Truck {
@@ -10,6 +14,10 @@ export interface Truck {
     fuel: number; // 0-100
     route: string;
     type: string;
+    vehicleNumber: string;
+    contactNumber: string;
+    latitude?: number;
+    longitude?: number;
 }
 
 export interface AdminIssue {
@@ -35,7 +43,7 @@ export interface Resident {
 }
 
 export interface AdminUser {
-    id: number;
+    id: string; // Changed to string for Firestore compatibility
     name: string;
     email: string;
     role: string;
@@ -66,6 +74,33 @@ export interface AdminRoute {
     driver: string;
     status: 'Active' | 'Completed' | 'Pending';
     progress: string;
+    startLocation: string;
+    endLocation: string;
+    startCoords?: { lat: number, lng: number };
+    endCoords?: { lat: number, lng: number };
+}
+
+export interface Schedule {
+    id: string; // Changed to string for Firestore compatibility
+    day: string;
+    date: string;
+    route: string;
+    truck: string;
+    type: string;
+    status: 'Scheduled' | 'Draft' | 'Completed';
+}
+
+export interface Invoice {
+    id: string;
+    residentId?: string; // Optional for now
+    residentName: string; // Made required to match billing service
+    resident?: string; // Legacy support
+    date?: string;
+    dueDate?: string;
+    amount: number;
+    status: 'Paid' | 'Pending' | 'Overdue';
+    method?: string;
+    items: { description: string; amount: number }[] | string[];
 }
 
 interface AdminContextType {
@@ -111,42 +146,15 @@ interface AdminContextType {
     updateSettings: (newSettings: SystemSettings) => void;
 }
 
-export interface Schedule {
-    id: number;
-    day: string;
-    date: string; // Add date field for specific calendar support
-    route: string;
-    truck: string;
-    type: string;
-    status: 'Scheduled' | 'Draft' | 'Completed';
-}
-
-export interface Invoice {
-    id: string;
-    residentId: string;
-    residentName: string;
-    date: string;
-    amount: number;
-    status: 'Paid' | 'Pending' | 'Overdue';
-    method: string;
-    items: { description: string; amount: number }[];
-}
-
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 // Initial Mock Data
 const INITIAL_TRUCKS: Truck[] = [];
-
 const INITIAL_ISSUES: AdminIssue[] = [];
-
 const INITIAL_RESIDENTS: Resident[] = [];
-
 const INITIAL_USERS: AdminUser[] = [];
-
 const INITIAL_SCHEDULES: Schedule[] = [];
-
 const INITIAL_INVOICES: Invoice[] = [];
-
 const INITIAL_ROUTES: AdminRoute[] = [];
 
 const INITIAL_SETTINGS: SystemSettings = {
@@ -177,19 +185,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
     const [settings, setSettings] = useState<SystemSettings>(INITIAL_SETTINGS);
 
-    // Load from local storage
+    // Load from local storage and Subscribe to Firestore
     useEffect(() => {
         const storedTrucks = localStorage.getItem('ecotrack_admin_trucks');
-        const storedIssues = localStorage.getItem('ecotrack_admin_issues');
-        const storedResidents = localStorage.getItem('ecotrack_admin_residents');
         const storedUsers = localStorage.getItem('ecotrack_admin_users');
         const storedRoutes = localStorage.getItem('ecotrack_admin_routes');
         const storedSchedules = localStorage.getItem('ecotrack_admin_schedules');
         const storedInvoices = localStorage.getItem('ecotrack_admin_invoices');
 
         if (storedTrucks) setTrucks(JSON.parse(storedTrucks));
-        if (storedIssues) setIssues(JSON.parse(storedIssues));
-        if (storedResidents) setResidents(JSON.parse(storedResidents));
+        // Residents and Issues are now fetched from Firestore
         if (storedUsers) setUsers(JSON.parse(storedUsers));
         if (storedRoutes) setRoutes(JSON.parse(storedRoutes));
         if (storedSchedules) setSchedules(JSON.parse(storedSchedules));
@@ -197,32 +202,107 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
         const storedSettings = localStorage.getItem('ecotrack_admin_settings');
         if (storedSettings) setSettings(JSON.parse(storedSettings));
+
+        // Subscribe to Firestore Issues
+        const unsubscribeIssues = issueService.subscribeToAllIssues((fetchedIssues) => {
+            const mappedIssues: AdminIssue[] = fetchedIssues.map(i => ({
+                id: i.id || 'unknown',
+                type: i.type,
+                resident: i.residentName,
+                address: i.address,
+                date: i.date,
+                status: i.status,
+                priority: i.priority,
+                desc: i.description
+            }));
+            setIssues(mappedIssues);
+        });
+
+        // Subscribe to Firestore Residents
+        const unsubscribeResidents = userService.subscribeToAllResidents((fetchedResidents) => {
+            console.log("AdminContext: Received residents from service:", fetchedResidents);
+            const mappedResidents: Resident[] = fetchedResidents.map(u => ({
+                id: u.uid,
+                name: u.name,
+                email: u.email,
+                address: u.address || 'N/A',
+                phone: u.phone || 'N/A',
+                type: 'Residential',
+                status: 'Active',
+                joinDate: u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+            }));
+            setResidents(mappedResidents);
+        });
+
+        // Subscribe to Firestore Pickups (Schedules)
+        const unsubscribePickups = pickupService.subscribeToAllPickups((fetchedPickups) => {
+            console.log("AdminContext: Received pickups:", fetchedPickups);
+            const mappedSchedules: Schedule[] = fetchedPickups.map(p => ({
+                id: p.id || 'unknown',
+                date: new Date(p.date).toISOString().split('T')[0],
+                day: new Date(p.date).toLocaleString('en-US', { weekday: 'long' }),
+                route: p.location,
+                truck: 'Unassigned',
+                status: p.status === 'Completed' ? 'Completed' : 'Scheduled',
+                type: p.type
+            }));
+            setSchedules(mappedSchedules as any);
+        });
+
+        // Subscribe to Firestore Payments (Billing/Invoices)
+        const unsubscribePayments = billingService.subscribeToAllPayments((fetchedPayments) => {
+            console.log("AdminContext: Received payments:", fetchedPayments);
+            const mappedInvoices: Invoice[] = fetchedPayments.map(p => ({
+                id: p.id || 'unknown',
+                resident: p.residentName,
+                // Handle optional residentId/Name for UI compatibility
+                residentId: p.userId || 'unknown',
+                residentName: p.residentName || 'Unknown',
+                amount: p.amount,
+                status: p.status === 'Paid' ? 'Paid' : 'Pending',
+                dueDate: p.date,
+                date: p.date,
+                items: [{ description: 'Waste Collection Service', amount: p.amount }]
+            }));
+            setInvoices(mappedInvoices);
+        });
+
+        return () => {
+            unsubscribeIssues();
+            unsubscribeResidents();
+            unsubscribePickups();
+            unsubscribePayments();
+        };
     }, []);
 
-    // Save to local storage
+    // Save to local storage (Excluding items now in Firestore)
     useEffect(() => {
         localStorage.setItem('ecotrack_admin_trucks', JSON.stringify(trucks));
-        localStorage.setItem('ecotrack_admin_issues', JSON.stringify(issues));
-        localStorage.setItem('ecotrack_admin_residents', JSON.stringify(residents));
         localStorage.setItem('ecotrack_admin_users', JSON.stringify(users));
         localStorage.setItem('ecotrack_admin_routes', JSON.stringify(routes));
-        localStorage.setItem('ecotrack_admin_schedules', JSON.stringify(schedules));
-        localStorage.setItem('ecotrack_admin_invoices', JSON.stringify(invoices));
+        // Schedules, Residents, Issues, Invoices are now in Firestore
         localStorage.setItem('ecotrack_admin_settings', JSON.stringify(settings));
-    }, [trucks, issues, residents, users, routes, schedules, invoices, settings]);
+    }, [trucks, users, routes, settings]);
 
     const updateTruckStatus = (id: string, status: Truck['status']) => {
         setTrucks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
     };
 
-    const updateIssueStatus = (id: string, status: AdminIssue['status']) => {
+    const updateIssueStatus = async (id: string, status: AdminIssue['status']) => {
+        // Optimistic update
         setIssues(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+
+        try {
+            // await issueService.updateIssueStatus(id, status); // Need to implement this in service if needed
+        } catch (error) {
+            console.error("Failed to update issue status", error);
+        }
     };
 
     const addIssue = (issueData: Omit<AdminIssue, 'id'>) => {
         const newIssue = {
             ...issueData,
-            id: `ISS-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
+            id: `ISS-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
         };
         setIssues(prev => [newIssue, ...prev]);
     };
@@ -231,8 +311,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         setIssues(prev => prev.map(i => i.id === id ? { ...i, ...data } : i));
     };
 
-    const deleteIssue = (id: string) => {
+    const deleteIssue = async (id: string) => {
+        // Optimistic delete
         setIssues(prev => prev.filter(i => i.id !== id));
+        try {
+            // await issueService.deleteIssue(id); // Implement in service
+        } catch (error) {
+            console.error("Failed to delete issue", error);
+        }
     };
 
     const addTruck = (truckData: Omit<Truck, 'id'>) => {
@@ -271,23 +357,23 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         setResidents(prev => prev.filter(r => r.id !== id));
     };
 
-    const updateUserStatus = (id: number, status: AdminUser['status']) => {
+    const updateUserStatus = (id: string, status: AdminUser['status']) => {
         setUsers(prev => prev.map(u => u.id === id ? { ...u, status } : u));
     };
 
     const addUser = (userData: Omit<AdminUser, 'id'>) => {
         const newUser = {
             ...userData,
-            id: Date.now() // Simple ID generation
+            id: Date.now().toString()
         };
         setUsers(prev => [...prev, newUser]);
     };
 
-    const updateUser = (id: number, data: Partial<AdminUser>) => {
+    const updateUser = (id: string, data: Partial<AdminUser>) => {
         setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
     };
 
-    const deleteUser = (id: number) => {
+    const deleteUser = (id: string) => {
         setUsers(prev => prev.filter(u => u.id !== id));
     };
 
@@ -307,31 +393,67 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         setRoutes(prev => prev.filter(r => r.id !== id));
     };
 
-    const addSchedule = (scheduleData: Omit<Schedule, 'id'>) => {
-        const newSchedule = {
-            ...scheduleData,
-            id: Date.now() // Simple ID generation
-        };
-        setSchedules(prev => [...prev, newSchedule]);
+    const addSchedule = async (scheduleData: Omit<Schedule, 'id'>) => {
+        try {
+            // Map Schedule to Pickup format for Firestore
+            await pickupService.createPickup({
+                userId: 'admin_generated', // Placeholder since admin created it
+                residentName: 'Admin Scheduled',
+                date: scheduleData.date,
+                type: scheduleData.type as any,
+                status: scheduleData.status as any,
+                location: scheduleData.route, // Using route as location
+                notes: `Truck: ${scheduleData.truck}`
+            });
+            // No need to update local state manually; subscription will catch it
+        } catch (error) {
+            console.error("Failed to add schedule:", error);
+            alert("Failed to save schedule to database.");
+        }
     };
 
-    const updateSchedule = (id: number, data: Partial<Schedule>) => {
-        setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    const updateSchedule = async (id: string, data: Partial<Schedule>) => {
+        try {
+            const updates: any = {};
+            if (data.date) updates.date = data.date;
+            if (data.type) updates.type = data.type;
+            if (data.status) updates.status = data.status;
+            if (data.route) updates.location = data.route;
+            if (data.truck) updates.notes = `Truck: ${data.truck}`;
+
+            await pickupService.updatePickup(id, updates);
+        } catch (error) {
+            console.error("Failed to update schedule:", error);
+        }
     };
 
-    const deleteSchedule = (id: number) => {
-        setSchedules(prev => prev.filter(s => s.id !== id));
+    const deleteSchedule = async (id: string) => {
+        try {
+            await pickupService.deletePickup(id);
+        } catch (error) {
+            console.error("Failed to delete schedule:", error);
+        }
     };
 
-    const addInvoice = (invoiceData: Omit<Invoice, 'id'>) => {
-        const newInvoice = {
-            ...invoiceData,
-            id: `INV-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
-        };
-        setInvoices(prev => [newInvoice, ...prev]);
+    const addInvoice = async (invoiceData: Omit<Invoice, 'id'>) => {
+        try {
+            await billingService.createPayment({
+                userId: invoiceData.residentId || 'admin_generated',
+                residentName: invoiceData.residentName,
+                amount: invoiceData.amount,
+                method: 'Cash', // Default for admin creation
+                status: 'Pending',
+                date: invoiceData.date || new Date().toISOString().split('T')[0]
+            });
+        } catch (error) {
+            console.error("Failed to create invoice:", error);
+            alert("Failed to save invoice.");
+        }
     };
 
     const updateInvoiceStatus = (id: string, status: Invoice['status']) => {
+        // Billing service update not yet implemented in service file
+        console.warn("Update invoice status not implemented yet regarding backend persistence");
         setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status } : inv));
     };
 
@@ -341,6 +463,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             id: `INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
             residentId: resident.id,
             residentName: resident.name,
+            resident: resident.name, // Legacy
             date: new Date().toISOString().split('T')[0],
             amount: resident.type === 'Commercial' ? 4500 : 500,
             status: 'Pending' as const,

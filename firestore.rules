@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Check if user is signed in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Admin check (assuming custom claim or role field)
+    // For now, we rely on client-side logic + basic auth for simplicity, 
+    // but in production, you'd check request.auth.token.admin == true
+    // or get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+
+    // Users: Users can read/write their own profile
+    // Admin needs to read all profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Requests: 
+    // - Create: Any auth user
+    // - Read: Any auth user (residents see theirs, admins see all)
+    // - Update: Any auth user (to allow status updates)
+    match /requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read, update: if isAuthenticated();
+    }
+
+    // Services:
+    // - Read: Any auth user
+    // - Write: Any auth user (admins create services)
+    match /services/{serviceId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Issues:
+    // - Create: Any auth user (residents)
+    // - Read: Any auth user (residents see theirs, admins see all)
+    // - Update: Any auth user (admins update status)
+    match /issues/{issueId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Pickups (Schedules)
+    match /pickups/{pickupId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Payments (Billing)
+    match /payments/{paymentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Default: Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

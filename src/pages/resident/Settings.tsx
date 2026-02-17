@@ -18,7 +18,8 @@ export function ResidentSettings() {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '(555) 123-4567'
+    phone: '(555) 123-4567',
+    address: ''
   });
 
   // Update profile data when user loads
@@ -30,7 +31,8 @@ export function ResidentSettings() {
         firstName: first || '',
         lastName: last || '',
         email: user.email,
-        phone: user.phone || ''
+        phone: user.phone || '',
+        address: user.address || user.location || ''
       }));
     }
   }, [user]);
@@ -38,7 +40,7 @@ export function ResidentSettings() {
   const handleSaveProfile = async () => {
     console.log("Settings: handleSaveProfile called");
     const fullName = `${profileData.firstName} ${profileData.lastName}`.trim();
-    console.log("Settings: Saving profile data:", { fullName, email: profileData.email, phone: profileData.phone });
+    console.log("Settings: Saving profile data:", { fullName, email: profileData.email, phone: profileData.phone, address: profileData.address });
 
     if (!fullName || !profileData.email) {
       alert("Please fill in all fields (Name and Email are required)");
@@ -47,10 +49,17 @@ export function ResidentSettings() {
 
     try {
       setIsLoading(true);
+      // We include all fields to ensure that if the document is missing (first time save),
+      // it passes Firestore "create" rules which usually require role/email/uid.
       await updateProfile({
+        uid: user?.uid,
         name: fullName,
         email: profileData.email,
-        phone: profileData.phone
+        phone: profileData.phone,
+        address: profileData.address,
+        location: profileData.address,
+        role: user?.role || 'resident',
+        createdAt: user?.createdAt || new Date().toISOString()
       });
       console.log("Settings: updateProfile success");
       addNotification('Profile Updated', 'Your profile information has been saved successfully.', 'success');
@@ -153,6 +162,12 @@ export function ResidentSettings() {
               label="Phone Number"
               value={profileData.phone}
               onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+            />
+            <Input
+              label="Address"
+              value={profileData.address}
+              onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+              placeholder="e.g. 123 Green Street, Colombo 05"
             />
             <div className="pt-2">
               <Button onClick={handleSaveProfile} disabled={isLoading} isLoading={isLoading}>Save Changes</Button>

@@ -9,7 +9,7 @@ import { ShieldCheck } from 'lucide-react';
 export function LoginAdmin() {
     const navigate = useNavigate();
     const { login } = useAuth();
-    const [formData, setFormData] = useState({ username: '', password: '' });
+    const [formData, setFormData] = useState({ email: '', password: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -17,7 +17,25 @@ export function LoginAdmin() {
         setIsSubmitting(true);
 
         try {
-            await login(formData.username, formData.password);
+            const user = await login(formData.email, formData.password);
+
+            // Check if user is actually an admin
+            if (formData.email.toLowerCase() !== 'admin@ecotrack.lk') {
+                // Try to fetch profile to see if role is admin
+                try {
+                    const { userService } = await import('../../services/userService');
+                    const profile = await userService.getUserProfile(user.uid);
+                    if (profile?.role !== 'admin') {
+                        throw new Error('Access Denied: Administrators only');
+                    }
+                } catch (err) {
+                    // If fetch fails or role mismatch, assume strictly super admin for now or fail
+                    if (formData.email.toLowerCase() !== 'admin@ecotrack.lk') {
+                        throw new Error('Access Denied: Administrators only');
+                    }
+                }
+            }
+
             navigate('/admin/dashboard');
         } catch (error: any) {
             console.error(error);
@@ -48,12 +66,12 @@ export function LoginAdmin() {
                 <CardContent className="pt-6">
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <Input
-                            label="Admin Username"
-                            type="text"
-                            placeholder="Enter admin username"
+                            label="Admin Email"
+                            type="email"
+                            placeholder="admin@ecotrack.lk"
                             required
-                            value={formData.username}
-                            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                            value={formData.email}
+                            onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                         />
                         <div className="space-y-1">
                             <div className="flex items-center justify-between">

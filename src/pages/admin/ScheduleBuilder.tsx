@@ -89,7 +89,7 @@ export function AdminScheduleBuilder() {
         setIsModalOpen(true);
     };
 
-    const handleDelete = (e: React.MouseEvent, id: number) => {
+    const handleDelete = (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
         if (confirm('Delete this schedule?')) {
             deleteSchedule(id);

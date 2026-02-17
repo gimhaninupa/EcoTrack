@@ -1,11 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Landing } from './pages/public/Landing';
 import { Login } from './pages/public/Login';
-import { LoginResident } from './pages/public/LoginResident';
 import { LoginAdmin } from './pages/public/LoginAdmin';
 import { SignUp } from './pages/public/SignUp';
 import { SignUpResident } from './pages/public/SignUpResident';
-import { SignUpAdmin } from './pages/public/SignUpAdmin';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 // Resident Pages
@@ -32,6 +30,10 @@ import { ServiceProvider } from './context/ServiceContext';
 import { AuthProvider } from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+
+// ... (imports)
+
 export default function App() {
   console.log('App.tsx: Rendering App component...');
   return (
@@ -42,15 +44,26 @@ export default function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
+
+              {/* Main Login (Residents Only) */}
               <Route path="/login" element={<Login />} />
-              <Route path="/login/resident" element={<LoginResident />} />
-              <Route path="/login/admin" element={<LoginAdmin />} />
+
+              {/* Hidden Admin Login */}
+              <Route path="/admin/login" element={<LoginAdmin />} />
+
+              {/* Registration (Resident Only) */}
               <Route path="/signup" element={<SignUp />} />
               <Route path="/signup/resident" element={<SignUpResident />} />
-              <Route path="/signup/admin" element={<SignUpAdmin />} />
 
-              {/* Resident Routes */}
-              <Route path="/resident" element={<DashboardLayout />}>
+              {/* Resident Routes - Protected */}
+              <Route
+                path="/resident"
+                element={
+                  <ProtectedRoute allowedRoles={['resident']}>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="dashboard" element={<ResidentDashboard />} />
                 <Route path="schedule" element={<ResidentSchedule />} />
                 <Route path="tracking" element={<ResidentTracking />} />
@@ -61,8 +74,15 @@ export default function App() {
                 <Route path="settings" element={<ResidentSettings />} />
               </Route>
 
-              {/* Admin Routes */}
-              <Route path="/admin" element={<DashboardLayout />}>
+              {/* Admin Routes - Protected */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="routes" element={<AdminRouteManagement />} />
                 <Route path="fleet" element={<AdminFleetTracking />} />

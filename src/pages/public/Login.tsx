@@ -1,74 +1,126 @@
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { ShieldCheck, Leaf } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Truck } from 'lucide-react';
+import { userService } from '../../services/userService';
 
 export function Login() {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // 1. Authenticate
+      const user = await login(formData.email, formData.password);
+
+      // 2. Check Role
+      const userProfile = await userService.getUserProfile(user.uid);
+
+      // SUPER ADMIN CHECK (Hardcoded Security)
+      const isSuperAdmin = formData.email?.toLowerCase() === 'admin@ecotrack.lk';
+      const role = isSuperAdmin ? 'admin' : (userProfile?.role || 'resident');
+
+      if (role === 'admin') {
+        setError("Access Denied: This login is for Residents only.");
+        // Optional: Logout the admin session so they don't get stuck
+        // await logout(); 
+      } else {
+        navigate('/resident/dashboard');
+      }
+    } catch (error: any) {
+      console.error(error);
+      setError(error.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
-    <div className="w-full max-w-4xl space-y-8">
+    <div className="w-full max-w-md space-y-8">
       <div className="text-center">
-        <div className="flex items-center justify-center gap-2 font-bold text-3xl tracking-tight mb-4">
-          <span>
-            Eco<span className="text-forest-500">Track</span>
+        <Link to="/" className="inline-flex items-center justify-center gap-3 font-bold text-3xl tracking-tight mb-6 hover:opacity-80 transition-opacity">
+          <div className="bg-forest-600 p-2 rounded-xl shadow-sm">
+            <Truck className="h-8 w-8 text-white stroke-[2.5]" />
+          </div>
+          <span className="flex items-center">
+            <span className="text-neutral-900">Eco</span>
+            <span className="text-forest-600">Track</span>
           </span>
-        </div>
-        <h2 className="text-4xl font-bold tracking-tight text-neutral-900">
-          Select Your Portal
+        </Link>
+        <h2 className="text-3xl font-bold tracking-tight text-neutral-900">
+          Resident Login
         </h2>
-        <p className="mt-2 text-lg text-neutral-600">
-          Choose the appropriate login to continue
+        <p className="mt-2 text-neutral-600">
+          Sign in to manage your account
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mt-8">
-        {/* Resident Portal */}
-        <Link to="/login/resident" className="group">
-          <Card className="h-full border-neutral-200 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border-t-4 border-t-forest-500">
-            <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-forest-50 flex items-center justify-center mb-6 group-hover:bg-forest-100 transition-colors">
-                <Leaf className="h-10 w-10 text-forest-600" />
+      <Card className="border-neutral-200 shadow-lg border-t-4 border-t-forest-500">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+                {error}
               </div>
-              <h3 className="text-2xl font-bold text-neutral-900 mb-2">Resident Portal</h3>
-              <p className="text-neutral-500 mb-6 max-w-xs">
-                Manage your home services, report issues, and view schedules.
-              </p>
-              <span className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-forest-600 group-hover:bg-forest-700 transition-colors">
-                Login as Resident
-              </span>
-            </CardContent>
-          </Card>
-        </Link>
+            )}
 
-        {/* Admin Portal */}
-        <Link to="/login/admin" className="group">
-          <Card className="h-full border-neutral-200 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border-t-4 border-t-forest-500">
-            <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-forest-50 flex items-center justify-center mb-6 group-hover:bg-forest-100 transition-colors">
-                <ShieldCheck className="h-10 w-10 text-forest-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-neutral-900 mb-2">Administrator Portal</h3>
-              <p className="text-neutral-500 mb-6 max-w-xs">
-                Access system controls, manage users, and view analytics.
-              </p>
-              <span className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-forest-600 group-hover:bg-forest-700 transition-colors">
-                Login as Admin
-              </span>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+            <Input
+              label="Email"
+              type="email"
+              placeholder="name@example.com"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            />
+            <Input
+              label="Password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+            />
 
-      <div className="text-center mt-8 space-y-4">
-        <div>
-          <span className="text-neutral-600">Don't have an account? </span>
-          <Link to="/signup" className="text-forest-600 hover:text-forest-700 font-medium hover:underline">
-            Sign up
-          </Link>
-        </div>
-        <div>
-          <Link to="/" className="text-neutral-500 hover:text-neutral-700 font-medium">
-            ← Back to Home
-          </Link>
-        </div>
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 text-neutral-600">
+                <input type="checkbox" className="rounded border-neutral-300 text-forest-600 focus:ring-forest-500" />
+                Remember me
+              </label>
+              <Link to="#" className="text-forest-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
+
+            <Button type="submit" className="w-full bg-forest-600 hover:bg-forest-700" isLoading={isLoading}>
+              Sign In
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-neutral-500">
+            Don't have an account?{' '}
+            <Link to="/signup" className="font-medium text-forest-600 hover:text-forest-500">
+              Sign up
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="text-center">
+        <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
+          ← Back to Home
+        </Link>
       </div>
     </div>
   </div>;

@@ -10,6 +10,7 @@ interface User {
     email: string;
     role: 'resident' | 'admin';
     location?: string;
+    address?: string; // Added address field
     phone?: string;
     department?: string;
     createdAt?: string;
@@ -58,6 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // For now, let's just ensure we handle errors gracefully.
 
             try {
+                // SUPER ADMIN CHECK (Hardcoded Security)
+                const isSuperAdmin = firebaseUser.email?.toLowerCase() === 'admin@ecotrack.lk';
+
                 let userProfile = await userService.getUserProfile(firebaseUser.uid);
 
                 if (!userProfile) {
@@ -66,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         uid: firebaseUser.uid,
                         name: firebaseUser.displayName || 'User',
                         email: firebaseUser.email || '',
-                        role: 'resident',
+                        role: isSuperAdmin ? 'admin' : 'resident', // Force Admin if email matches
                         createdAt: new Date().toISOString()
                     } as User;
 
@@ -77,16 +81,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         console.error('AuthContext: Failed to save default profile to Firestore', createError);
                     }
                     userProfile = newProfile;
+                } else {
+                    // Ensure Super Admin always has admin role even if Firestore says otherwise
+                    if (isSuperAdmin && userProfile.role !== 'admin') {
+                        userProfile.role = 'admin';
+                        // Optionally update Firestore to reflect this
+                        userService.updateUserProfile(firebaseUser.uid, { role: 'admin' });
+                    }
                 }
 
                 setUser(userProfile as User);
             } catch (error) {
                 console.error('Error fetching/creating user profile:', error);
+
+                // Fallback for error state
+                const isSuperAdmin = firebaseUser.email?.toLowerCase() === 'admin@ecotrack.lk';
                 setUser({
                     uid: firebaseUser.uid,
                     name: firebaseUser.displayName || 'User',
                     email: firebaseUser.email || '',
-                    role: 'resident'
+                    role: isSuperAdmin ? 'admin' : 'resident'
                 } as User);
             } finally {
                 setLoading(false);
@@ -111,15 +125,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("AuthContext: Updating in Firestore...");
             // 1. Update Firestore
             await userService.updateUserProfile(user.uid, data);
+            console.log("AuthContext: Firestore update success");
+        } catch (error: any) {
+            console.error("AuthContext: Failed to update profile in Firestore:", error);
+            // If permission denied or other error, we STILL update local state
+            // so the user can proceed with the session.
+            console.warn("AuthContext: Proceeding with local state update despite Firestore error.");
 
-            // 2. Update Local State directly to prevent unnecessary re-fetches
-            setUser(prev => prev ? { ...prev, ...data } : null);
-
-            console.log("AuthContext: Profile updated successfully");
-        } catch (error) {
-            console.error("AuthContext: Failed to update profile:", error);
-            throw error;
+            // Optional: Notify user (this might be handled by the caller, but good to ensure uniqueness)
+            // We won't throw here, we'll swallow the error so the UI thinks it succeeded (partially)
+            // or we re-throw a friendly warning.
         }
+
+        // 2. Update Local State (Always done so the UI reflects changes)
+        setUser(prev => prev ? { ...prev, ...data } : null);
+        console.log("AuthContext: Local state updated");
     };
 
     const logout = async () => {

@@ -1,73 +1,141 @@
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Card, CardContent } from '../../components/ui/Card';
-import { ShieldCheck, Leaf } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Truck } from 'lucide-react';
 
 export function SignUp() {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { register } = useAuth();
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    address: '',
+    password: '',
+    email: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      await register(formData.email, formData.password, {
+        name: `${formData.firstName} ${formData.lastName}`,
+        role: 'resident' as const,
+        location: formData.address
+      });
+
+      // Redirect based on email (Super Admin check)
+      if (formData.email.toLowerCase() === 'admin@ecotrack.lk') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/resident/dashboard');
+      }
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
-    <div className="w-full max-w-4xl space-y-8">
+    <div className="w-full max-w-md space-y-8">
       <div className="text-center">
-        <div className="flex items-center justify-center gap-2 font-bold text-3xl tracking-tight mb-4">
-          <span>
-            Eco<span className="text-forest-500">Track</span>
+        <Link to="/" className="inline-flex items-center justify-center gap-3 font-bold text-3xl tracking-tight mb-6 hover:opacity-80 transition-opacity">
+          <div className="bg-forest-600 p-2 rounded-xl shadow-sm">
+            <Truck className="h-8 w-8 text-white stroke-[2.5]" />
+          </div>
+          <span className="flex items-center">
+            <span className="text-neutral-900">Eco</span>
+            <span className="text-forest-600">Track</span>
           </span>
-        </div>
-        <h2 className="text-4xl font-bold tracking-tight text-neutral-900">
+        </Link>
+        <h2 className="text-3xl font-bold tracking-tight text-neutral-900">
           Create an Account
         </h2>
-        <p className="mt-2 text-lg text-neutral-600">
-          Select the type of account you wish to create
+        <p className="mt-2 text-neutral-600">
+          Join us effectively manage your waste
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mt-8">
-        {/* Resident Registration */}
-        <Link to="/signup/resident" className="group">
-          <Card className="h-full border-neutral-200 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border-t-4 border-t-forest-500">
-            <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-forest-50 flex items-center justify-center mb-6 group-hover:bg-forest-100 transition-colors">
-                <Leaf className="h-10 w-10 text-forest-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-neutral-900 mb-2">Resident Registration</h3>
-              <p className="text-neutral-500 mb-6 max-w-xs">
-                Join to manage your home services, waste collection, and more.
-              </p>
-              <span className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-forest-600 group-hover:bg-forest-700 transition-colors">
-                Register as Resident
-              </span>
-            </CardContent>
-          </Card>
-        </Link>
+      <Card className="border-neutral-200 shadow-lg border-t-4 border-t-forest-500">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="First name"
+                placeholder="John"
+                required
+                value={formData.firstName}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+              />
+              <Input
+                label="Last name"
+                placeholder="Doe"
+                required
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+              />
+            </div>
+            <Input
+              label="Email"
+              type="email"
+              placeholder="john@example.com"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+            />
+            <Input
+              label="Address"
+              placeholder="123 Main St"
+              required
+              value={formData.address}
+              onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+            />
+            <Input
+              label="Password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+            />
 
-        {/* Admin Registration */}
-        <Link to="/signup/admin" className="group">
-          <Card className="h-full border-neutral-200 shadow-lg hover:shadow-xl transition-all hover:-translate-y-1 border-t-4 border-t-forest-500">
-            <CardContent className="pt-10 pb-10 flex flex-col items-center text-center">
-              <div className="h-20 w-20 rounded-full bg-forest-50 flex items-center justify-center mb-6 group-hover:bg-forest-100 transition-colors">
-                <ShieldCheck className="h-10 w-10 text-forest-600" />
-              </div>
-              <h3 className="text-2xl font-bold text-neutral-900 mb-2">Administrator Registration</h3>
-              <p className="text-neutral-500 mb-6 max-w-xs">
-                Create an account to manage the EcoTrack system and resources.
-              </p>
-              <span className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-forest-600 group-hover:bg-forest-700 transition-colors">
-                Register as Admin
-              </span>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+            <div className="text-xs text-neutral-500">
+              By clicking create account, you agree to our{' '}
+              <Link to="#" className="text-forest-600 hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link to="#" className="text-forest-600 hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </div>
 
-      <div className="text-center mt-8 space-y-4">
-        <div>
-          <Link to="/login" className="text-neutral-500 hover:text-neutral-700 font-medium">
-            Already have an account? Sign in
-          </Link>
-        </div>
-        <div>
-          <Link to="/" className="text-neutral-500 hover:text-neutral-700 font-medium">
-            ← Back to Home
-          </Link>
-        </div>
+            <Button type="submit" className="w-full bg-forest-600 hover:bg-forest-700" isLoading={isLoading}>
+              Create Account
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-neutral-500">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-forest-600 hover:text-forest-500">
+              Sign in
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="text-center">
+        <Link to="/" className="text-sm text-neutral-500 hover:text-neutral-900">
+          ← Back to Home
+        </Link>
       </div>
     </div>
   </div>;

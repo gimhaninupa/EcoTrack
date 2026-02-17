@@ -2,9 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Truck, MapPin, Navigation, Battery, Fuel, AlertTriangle, CheckCircle2, X, Pencil, Trash2, History, Phone } from 'lucide-react';
+import { Truck, MapPin, Battery, Fuel, X, Pencil, Trash2, History, Phone } from 'lucide-react';
 import { useAdmin, Truck as TruckType } from '../../context/AdminContext';
 import { Input } from '../../components/ui/Input';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icon in Leaflet
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Component to fly to selected truck
+function MapUpdater({ center }: { center: [number, number] }) {
+    const map = useMap();
+    useEffect(() => {
+        map.flyTo(center, 13);
+    }, [center, map]);
+    return null;
+}
 
 export function AdminFleetTracking() {
     const { trucks, addTruck, updateTruck, deleteTruck } = useAdmin();
@@ -12,16 +37,21 @@ export function AdminFleetTracking() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [editingTruck, setEditingTruck] = useState<TruckType | null>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
 
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Omit<TruckType, 'id'>>({
         driver: '',
-        status: 'Idle' as const,
-        location: 'Depot',
+        status: 'Idle',
+        location: '',
         battery: 100,
         fuel: 100,
         route: '-',
-        type: 'Compactor'
+        type: '',
+        vehicleNumber: '',
+        contactNumber: '',
+        latitude: undefined,
+        longitude: undefined
     });
 
     // Update selected truck when list changes
@@ -34,6 +64,30 @@ export function AdminFleetTracking() {
             setSelectedTruck(trucks[0]);
         }
     }, [trucks, selectedTruck]);
+
+    const handleGeocode = async () => {
+        if (!formData.location) return;
+
+        // If user already manually entered coords, don't overwrite immediately unless they want to (simple logic for now: just fetch if location changes)
+        // Actually, let's fetch if location is present.
+
+        setIsGeocoding(true);
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.location)}`);
+            const data = await response.json();
+            if (data && data.length > 0) {
+                setFormData(prev => ({
+                    ...prev,
+                    latitude: parseFloat(data[0].lat),
+                    longitude: parseFloat(data[0].lon)
+                }));
+            }
+        } catch (error) {
+            console.error("Geocoding failed", error);
+        } finally {
+            setIsGeocoding(false);
+        }
+    };
 
     const handleExportReport = () => {
         const printWindow = window.open('', '_blank');
@@ -63,12 +117,14 @@ export function AdminFleetTracking() {
                     <table>
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th>Vehicle No</th>
                                 <th>Driver</th>
+                                <th>Contact</th>
+                                <th>Type</th>
                                 <th>Status</th>
                                 <th>Location</th>
+                                <th>Coords</th>
                                 <th>Route</th>
-                                <th>Type</th>
                                 <th>Fuel</th>
                                 <th>Battery</th>
                             </tr>
@@ -76,12 +132,14 @@ export function AdminFleetTracking() {
                         <tbody>
                             ${trucks.map(truck => `
                                 <tr>
-                                    <td>${truck.id}</td>
+                                    <td>${truck.vehicleNumber || truck.id}</td>
                                     <td>${truck.driver}</td>
+                                    <td>${truck.contactNumber || '-'}</td>
+                                    <td>${truck.type}</td>
                                     <td><span class="status">${truck.status}</span></td>
                                     <td>${truck.location}</td>
+                                    <td>${truck.latitude?.toFixed(4)}, ${truck.longitude?.toFixed(4)}</td>
                                     <td>${truck.route}</td>
-                                    <td>${truck.type}</td>
                                     <td>${truck.fuel}%</td>
                                     <td>${truck.battery}%</td>
                                 </tr>
@@ -106,11 +164,15 @@ export function AdminFleetTracking() {
         setFormData({
             driver: '',
             status: 'Idle',
-            location: 'Depot',
+            location: '',
             battery: 100,
             fuel: 100,
             route: '-',
-            type: 'Compactor'
+            type: '',
+            vehicleNumber: '',
+            contactNumber: '',
+            latitude: undefined,
+            longitude: undefined
         });
         setIsModalOpen(true);
     };
@@ -125,7 +187,11 @@ export function AdminFleetTracking() {
             battery: truck.battery,
             fuel: truck.fuel,
             route: truck.route,
-            type: truck.type
+            type: truck.type,
+            vehicleNumber: truck.vehicleNumber || '',
+            contactNumber: truck.contactNumber || '',
+            latitude: truck.latitude || undefined,
+            longitude: truck.longitude || undefined
         });
         setIsModalOpen(true);
     };
@@ -138,19 +204,31 @@ export function AdminFleetTracking() {
     };
 
     const handleSubmit = () => {
-        if (!formData.driver) return;
+        if (!formData.driver || !formData.vehicleNumber) return;
+
+        // Ensure defaults if empty
+        const submissionData = {
+            ...formData,
+            status: formData.status,
+            location: formData.location || 'Unknown',
+            type: formData.type || 'Generic',
+            latitude: formData.latitude || 6.9271, // Valid default coordinate
+            longitude: formData.longitude || 79.8612
+        };
 
         if (editingTruck) {
-            updateTruck(editingTruck.id, formData);
+            updateTruck(editingTruck.id, submissionData);
         } else {
-            addTruck(formData);
+            addTruck(submissionData);
         }
         setIsModalOpen(false);
     };
 
     const handleContactDriver = () => {
-        if (selectedTruck) {
-            alert(`Calling driver ${selectedTruck.driver}...`);
+        if (selectedTruck && selectedTruck.contactNumber) {
+            alert(`Calling ${selectedTruck.driver} at ${selectedTruck.contactNumber}...`);
+        } else if (selectedTruck) {
+            alert(`No contact number for ${selectedTruck.driver}.`);
         }
     };
 
@@ -170,7 +248,7 @@ export function AdminFleetTracking() {
             {/* Add/Edit Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <Card className="w-full max-w-md p-6 space-y-4">
+                    <Card className="w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center">
                             <h3 className="text-lg font-bold">{editingTruck ? 'Edit Vehicle' : 'Add New Vehicle'}</h3>
                             <Button variant="ghost" size="icon" onClick={() => setIsModalOpen(false)}>
@@ -179,29 +257,54 @@ export function AdminFleetTracking() {
                         </div>
                         <div className="space-y-3">
                             <Input
-                                placeholder="Driver Name"
+                                placeholder="Vehicle Name / Driver Name"
                                 value={formData.driver}
                                 onChange={e => setFormData({ ...formData, driver: e.target.value })}
                             />
-                            <Input
-                                placeholder="Location (e.g. Depot)"
-                                value={formData.location}
-                                onChange={e => setFormData({ ...formData, location: e.target.value })}
-                            />
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="relative">
                                 <Input
-                                    placeholder="Battery %"
+                                    placeholder={isGeocoding ? "Locating..." : "Location (e.g. Colombo)"}
+                                    value={formData.location}
+                                    onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                    onBlur={handleGeocode}
+                                />
+                                {isGeocoding && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="animate-spin h-3 w-3 border-2 border-forest-500 border-t-transparent rounded-full"></div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                    placeholder="Latitude"
                                     type="number"
-                                    value={formData.battery}
-                                    onChange={e => setFormData({ ...formData, battery: Number(e.target.value) })}
+                                    value={formData.latitude ?? ''}
+                                    onChange={e => setFormData({ ...formData, latitude: e.target.value ? Number(e.target.value) : undefined })}
                                 />
                                 <Input
-                                    placeholder="Fuel %"
+                                    placeholder="Longitude"
                                     type="number"
-                                    value={formData.fuel}
-                                    onChange={e => setFormData({ ...formData, fuel: Number(e.target.value) })}
+                                    value={formData.longitude ?? ''}
+                                    onChange={e => setFormData({ ...formData, longitude: e.target.value ? Number(e.target.value) : undefined })}
                                 />
                             </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <Input
+                                    placeholder="Vehicle Type"
+                                    value={formData.type}
+                                    onChange={e => setFormData({ ...formData, type: e.target.value })}
+                                />
+                                <Input
+                                    placeholder="Vehicle Number"
+                                    value={formData.vehicleNumber}
+                                    onChange={e => setFormData({ ...formData, vehicleNumber: e.target.value })}
+                                />
+                            </div>
+                            <Input
+                                placeholder="Contact Number"
+                                value={formData.contactNumber}
+                                onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
+                            />
                             <Button className="w-full" onClick={handleSubmit}>
                                 {editingTruck ? 'Save Changes' : 'Add Vehicle'}
                             </Button>
@@ -240,7 +343,7 @@ export function AdminFleetTracking() {
                         <div className="text-center p-8 text-neutral-500 bg-neutral-50 rounded-lg border border-dashed">
                             <Truck className="h-8 w-8 mx-auto mb-2 opacity-50" />
                             <p>No vehicles in fleet.</p>
-                            <Button size="sm" variant="link" onClick={handleOpenAdd}>Add one now</Button>
+                            <Button size="sm" variant="ghost" onClick={handleOpenAdd}>Add one now</Button>
                         </div>
                     ) : (
                         trucks.map(truck => (
@@ -299,56 +402,73 @@ export function AdminFleetTracking() {
                 </div>
 
                 {/* Map View */}
-                <Card className="lg:col-span-2 overflow-hidden flex flex-col relative">
-                    {selectedTruck ? (
-                        <>
-                            <CardHeader className="py-3 px-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-row justify-between items-center">
-                                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                    <MapPin className="h-4 w-4 text-forest-500" />
-                                    Live Map View
-                                </CardTitle>
-                                <div className="text-xs text-neutral-500">
-                                    Updating every 30s
-                                </div>
-                            </CardHeader>
-                            <div className="flex-1 bg-neutral-100 relative min-h-[400px]">
-                                {/* Placeholder for Map */}
-                                <div className="absolute inset-0 bg-[url('https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/13/5938/3882.png')] bg-cover opacity-50" />
+                <Card className="lg:col-span-2 overflow-hidden flex flex-col relative z-0">
+                    <CardHeader className="py-3 px-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-row justify-between items-center z-10 relative">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-forest-500" />
+                            Live Map View
+                        </CardTitle>
+                        <div className="text-xs text-neutral-500">
+                            Updates live
+                        </div>
+                    </CardHeader>
 
-                                {/* Mock Markers */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
-                                    <div className="relative">
-                                        <div className="absolute -top-8 -left-4 bg-white px-2 py-1 rounded shadow-md text-xs font-bold whitespace-nowrap">
-                                            {selectedTruck.id} - {selectedTruck.status}
-                                        </div>
-                                        <div className="h-4 w-4 bg-forest-600 rounded-full border-2 border-white shadow-lg animate-pulse" />
+                    <div className="flex-1 bg-neutral-100 relative min-h-[400px] z-0">
+                        <MapContainer
+                            center={[6.9271, 79.8612]}
+                            zoom={13}
+                            style={{ height: "100%", width: "100%" }}
+                        >
+                            <TileLayer
+                                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            />
+
+                            {/* Fly to selected truck */}
+                            {selectedTruck && selectedTruck.latitude && selectedTruck.longitude && (
+                                <MapUpdater center={[selectedTruck.latitude, selectedTruck.longitude]} />
+                            )}
+
+                            {trucks.map(truck => (
+                                truck.latitude && truck.longitude ? (
+                                    <Marker
+                                        key={truck.id}
+                                        position={[truck.latitude, truck.longitude]}
+                                    >
+                                        <Popup>
+                                            <div className="p-1">
+                                                <h3 className="font-bold">{truck.id}</h3>
+                                                <p className="text-sm">{truck.driver}</p>
+                                                <div className={`text-xs mt-1 px-2 py-0.5 rounded-full inline-block ${truck.status === 'En Route' ? 'bg-blue-100 text-blue-800' :
+                                                    truck.status === 'Collection' ? 'bg-green-100 text-green-800' :
+                                                        'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                    {truck.status}
+                                                </div>
+                                            </div>
+                                        </Popup>
+                                    </Marker>
+                                ) : null
+                            ))}
+                        </MapContainer>
+
+                        {/* Info Overlay (Only if selected) */}
+                        {selectedTruck && (
+                            <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg border border-neutral-200 shadow-lg z-[1000]">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-bold text-neutral-900">{selectedTruck.id} Details</h3>
+                                        <p className="text-sm text-neutral-500">{selectedTruck.driver} • {selectedTruck.location}</p>
                                     </div>
-                                </div>
-
-                                {/* Info Overlay */}
-                                <div className="absolute bottom-4 left-4 right-4 bg-white/90 backdrop-blur p-4 rounded-lg border border-neutral-200 shadow-lg">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-bold text-neutral-900">{selectedTruck.id} Details</h3>
-                                            <p className="text-sm text-neutral-500">Route: {selectedTruck.route} • {selectedTruck.type}</p>
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Button size="sm" variant="outline" onClick={() => setIsHistoryOpen(true)}>
-                                                <History className="mr-2 h-4 w-4" /> View History
-                                            </Button>
-                                            <Button size="sm" onClick={handleContactDriver}>
-                                                <Phone className="mr-2 h-4 w-4" /> Contact Driver
-                                            </Button>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" onClick={handleContactDriver}>
+                                            <Phone className="mr-2 h-4 w-4" /> Contact
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-neutral-400">
-                            <p>Select a vehicle to view status</p>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </Card>
             </div>
         </div>
