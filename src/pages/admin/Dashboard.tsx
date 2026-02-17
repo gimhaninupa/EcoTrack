@@ -104,21 +104,7 @@ export function AdminDashboard() {
 
           <AdminActivityFeed />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Fleet Status Map</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-neutral-100 rounded-lg aspect-video flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://api.mapbox.com/styles/v1/mapbox/light-v10/static/80.0088,6.8485,13,0/800x450?access_token=pk.eyJ1IjoiZWNvdHJhY2siLCJhIjoiY2x0bnh5ZzFvMDJqaTJrbzF0ZGJ5bXF6ayJ9.placeholder')] bg-cover bg-center opacity-50" />
-                <div className="z-10 text-center">
-                  <MapPin className="h-8 w-8 text-forest-500 mx-auto mb-2 animate-bounce" />
-                  <p className="font-medium text-neutral-600">Live Map Unavailable in Demo</p>
-                  <p className="text-xs text-neutral-400 mt-1">Showing simulated truck positions</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
 
           {/* Incoming Requests Section (Real-time) */}
           <Card className="h-full border-neutral-200/60 shadow-sm">

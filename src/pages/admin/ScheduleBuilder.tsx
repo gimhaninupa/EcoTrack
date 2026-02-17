@@ -11,7 +11,7 @@ import {
 
 export function AdminScheduleBuilder() {
     const { schedules, addSchedule, updateSchedule, deleteSchedule, routes, issues } = useAdmin();
-    const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1)); // Jan 1, 2026
+    const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<'week' | 'month'>('week');
 
     // Modal States
@@ -149,9 +149,7 @@ export function AdminScheduleBuilder() {
                     <p className="text-neutral-500">Plan and optimize waste collection routes.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsTemplateModalOpen(true)}>
-                        <Settings className="h-4 w-4 mr-2" /> Templates
-                    </Button>
+
                     <Button onClick={() => handleOpenCreate(new Date())}>
                         <Plus className="h-4 w-4 mr-2" /> Create Schedule
                     </Button>
@@ -236,34 +234,7 @@ export function AdminScheduleBuilder() {
                     </div>
                 )}
 
-                {/* Template Modal */}
-                {isTemplateModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                        <Card className="w-full max-w-md p-6 space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-lg font-bold">Schedule Templates</h3>
-                                <Button variant="ghost" size="icon" onClick={() => setIsTemplateModalOpen(false)}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <p className="text-sm text-neutral-500">
-                                Apply a pre-defined schedule template to the current week ({format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')} - {format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')}).
-                            </p>
-                            <div className="space-y-2">
-                                <button
-                                    className="w-full text-left p-3 rounded-lg border border-neutral-200 hover:border-forest-500 hover:bg-forest-50 transition-all flex justify-between items-center group"
-                                    onClick={applyTemplate}
-                                >
-                                    <div>
-                                        <div className="font-medium group-hover:text-forest-700">Standard Week</div>
-                                        <div className="text-xs text-neutral-500">Daily collection Mon-Fri, mixed types</div>
-                                    </div>
-                                    <Plus className="h-4 w-4 opacity-0 group-hover:opacity-100 text-forest-500" />
-                                </button>
-                            </div>
-                        </Card>
-                    </div>
-                )}
+
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

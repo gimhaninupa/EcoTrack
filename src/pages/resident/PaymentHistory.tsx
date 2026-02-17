@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Download, CreditCard, Plus, DollarSign, CheckCircle, Loader2 } from 'lucide-react';
 import { useService } from '../../context/ServiceContext';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export function ResidentPaymentHistory() {
@@ -95,7 +95,7 @@ export function ResidentPaymentHistory() {
   }, {
     header: 'Amount',
     accessorKey: 'amount' as const,
-    cell: (item: any) => <span className="font-mono">{item.amount}</span>
+    cell: (item: any) => <span className="font-mono">LKR {item.amount.toFixed(2)}</span>
   }, {
     header: 'Payment Method',
     accessorKey: 'method' as const,

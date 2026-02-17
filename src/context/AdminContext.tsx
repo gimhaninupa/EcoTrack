@@ -5,20 +5,8 @@ import { pickupService } from '../services/pickupService';
 import { billingService, Payment } from '../services/billingService';
 
 // Interfaces
-export interface Truck {
-    id: string;
-    driver: string;
-    status: 'En Route' | 'Collection' | 'Idle' | 'Maintenance';
-    location: string;
-    battery: number; // 0-100
-    fuel: number; // 0-100
-    route: string;
-    type: string;
-    vehicleNumber: string;
-    contactNumber: string;
-    latitude?: number;
-    longitude?: number;
-}
+import { truckService, Truck } from '../services/truckService';
+
 
 export interface AdminIssue {
     id: string;
@@ -149,7 +137,7 @@ interface AdminContextType {
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 // Initial Mock Data
-const INITIAL_TRUCKS: Truck[] = [];
+
 const INITIAL_ISSUES: AdminIssue[] = [];
 const INITIAL_RESIDENTS: Resident[] = [];
 const INITIAL_USERS: AdminUser[] = [];
@@ -175,7 +163,7 @@ const INITIAL_SETTINGS: SystemSettings = {
 };
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-    const [trucks, setTrucks] = useState<Truck[]>(INITIAL_TRUCKS);
+    const [trucks, setTrucks] = useState<Truck[]>([]);
     const [issues, setIssues] = useState<AdminIssue[]>(INITIAL_ISSUES);
     const [residents, setResidents] = useState<Resident[]>(INITIAL_RESIDENTS);
     const [users, setUsers] = useState<AdminUser[]>(INITIAL_USERS);
@@ -187,13 +175,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
     // Load from local storage and Subscribe to Firestore
     useEffect(() => {
-        const storedTrucks = localStorage.getItem('ecotrack_admin_trucks');
+
         const storedUsers = localStorage.getItem('ecotrack_admin_users');
         const storedRoutes = localStorage.getItem('ecotrack_admin_routes');
         const storedSchedules = localStorage.getItem('ecotrack_admin_schedules');
         const storedInvoices = localStorage.getItem('ecotrack_admin_invoices');
 
-        if (storedTrucks) setTrucks(JSON.parse(storedTrucks));
+
         // Residents and Issues are now fetched from Firestore
         if (storedUsers) setUsers(JSON.parse(storedUsers));
         if (storedRoutes) setRoutes(JSON.parse(storedRoutes));
@@ -242,11 +230,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
                 date: new Date(p.date).toISOString().split('T')[0],
                 day: new Date(p.date).toLocaleString('en-US', { weekday: 'long' }),
                 route: p.location,
-                truck: 'Unassigned',
+                truck: p.truckId || 'Unassigned',
                 status: p.status === 'Completed' ? 'Completed' : 'Scheduled',
                 type: p.type
             }));
-            setSchedules(mappedSchedules as any);
+            setSchedules(mappedSchedules);
         });
 
         // Subscribe to Firestore Payments (Billing/Invoices)
@@ -267,25 +255,35 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             setInvoices(mappedInvoices);
         });
 
+        // Subscribe to Firestore Trucks
+        const unsubscribeTrucks = truckService.subscribeToAllTrucks((fetchedTrucks) => {
+            setTrucks(fetchedTrucks);
+        });
+
         return () => {
             unsubscribeIssues();
             unsubscribeResidents();
             unsubscribePickups();
             unsubscribePayments();
+            unsubscribeTrucks();
         };
     }, []);
 
     // Save to local storage (Excluding items now in Firestore)
     useEffect(() => {
-        localStorage.setItem('ecotrack_admin_trucks', JSON.stringify(trucks));
+
         localStorage.setItem('ecotrack_admin_users', JSON.stringify(users));
         localStorage.setItem('ecotrack_admin_routes', JSON.stringify(routes));
         // Schedules, Residents, Issues, Invoices are now in Firestore
         localStorage.setItem('ecotrack_admin_settings', JSON.stringify(settings));
-    }, [trucks, users, routes, settings]);
+    }, [users, routes, settings]);
 
-    const updateTruckStatus = (id: string, status: Truck['status']) => {
-        setTrucks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+    const updateTruckStatus = async (id: string, status: Truck['status']) => {
+        try {
+            await truckService.updateTruck(id, { status });
+        } catch (error) {
+            console.error("Failed to update truck status", error);
+        }
     };
 
     const updateIssueStatus = async (id: string, status: AdminIssue['status']) => {
@@ -321,20 +319,38 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const addTruck = (truckData: Omit<Truck, 'id'>) => {
-        const newTruck = {
-            ...truckData,
-            id: `TRK-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
-        };
-        setTrucks(prev => [...prev, newTruck]);
+    const addTruck = async (truckData: Omit<Truck, 'id'>) => {
+        try {
+            await truckService.addTruck({
+                ...truckData,
+                latitude: 6.8533, // Default start
+                longitude: 80.0575,
+                vehicleNumber: truckData.vehicleNumber || 'Unassigned',
+                contactNumber: truckData.contactNumber || 'N/A',
+                type: truckData.type || 'Standard',
+                route: truckData.route || 'Unassigned',
+                battery: truckData.battery || 100,
+                fuel: truckData.fuel || 100
+            });
+        } catch (error) {
+            console.error("Failed to add truck", error);
+        }
     };
 
-    const updateTruck = (id: string, data: Partial<Truck>) => {
-        setTrucks(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+    const updateTruck = async (id: string, data: Partial<Truck>) => {
+        try {
+            await truckService.updateTruck(id, data);
+        } catch (error) {
+            console.error("Failed to update truck", error);
+        }
     };
 
-    const deleteTruck = (id: string) => {
-        setTrucks(prev => prev.filter(t => t.id !== id));
+    const deleteTruck = async (id: string) => {
+        try {
+            await truckService.deleteTruck(id);
+        } catch (error) {
+            console.error("Failed to delete truck", error);
+        }
     };
 
     const addResident = (residentData: Omit<Resident, 'id'>) => {
@@ -403,7 +419,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
                 type: scheduleData.type as any,
                 status: scheduleData.status as any,
                 location: scheduleData.route, // Using route as location
-                notes: `Truck: ${scheduleData.truck}`
+                truckId: scheduleData.truck,
+                notes: `Scheduled via Admin Panel`
             });
             // No need to update local state manually; subscription will catch it
         } catch (error) {
@@ -418,8 +435,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             if (data.date) updates.date = data.date;
             if (data.type) updates.type = data.type;
             if (data.status) updates.status = data.status;
+            if (data.type) updates.type = data.type;
+            if (data.status) updates.status = data.status;
             if (data.route) updates.location = data.route;
-            if (data.truck) updates.notes = `Truck: ${data.truck}`;
+            if (data.truck) updates.truckId = data.truck;
 
             await pickupService.updatePickup(id, updates);
         } catch (error) {
@@ -451,10 +470,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const updateInvoiceStatus = (id: string, status: Invoice['status']) => {
-        // Billing service update not yet implemented in service file
-        console.warn("Update invoice status not implemented yet regarding backend persistence");
-        setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status } : inv));
+    const updateInvoiceStatus = async (id: string, status: Invoice['status']) => {
+        try {
+            await billingService.updatePayment(id, { status });
+        } catch (error) {
+            console.error("Failed to update invoice status", error);
+        }
     };
 
     const generateMonthlyStatement = () => {

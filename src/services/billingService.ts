@@ -5,7 +5,8 @@ import {
     query,
     onSnapshot,
     serverTimestamp,
-    orderBy
+    orderBy,
+    where
 } from "firebase/firestore";
 
 export interface Payment {
@@ -50,5 +51,35 @@ export const billingService = {
         }, (error) => {
             console.error("Error in subscribeToAllPayments:", error);
         });
+    },
+
+    // Subscribe to USER payments (Resident View - Payment History)
+    subscribeToUserPayments(userId: string, callback: (payments: Payment[]) => void) {
+        const q = query(
+            collection(db, "payments"),
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc")
+        );
+
+        return onSnapshot(q, (snapshot) => {
+            const payments = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })) as Payment[];
+            callback(payments);
+        }, (error) => {
+            console.error("Error in subscribeToUserPayments:", error);
+        });
+    },
+
+    async updatePayment(id: string, updates: Partial<Payment>) {
+        try {
+            const { doc, updateDoc } = await import("firebase/firestore");
+            const paymentRef = doc(db, "payments", id);
+            await updateDoc(paymentRef, updates);
+        } catch (error) {
+            console.error("Error updating payment:", error);
+            throw error;
+        }
     }
 };

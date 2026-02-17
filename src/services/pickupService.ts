@@ -18,6 +18,7 @@ export interface Pickup {
     status: 'Scheduled' | 'In Progress' | 'Completed' | 'Missed';
     location: string;
     notes?: string;
+    truckId?: string;
     createdAt?: any;
 }
 
@@ -40,8 +41,8 @@ export const pickupService = {
     subscribeToUserPickups(userId: string, callback: (pickups: Pickup[]) => void) {
         const q = query(
             collection(db, "pickups"),
-            where("userId", "==", userId),
-            orderBy("date", "desc")
+            where("userId", "==", userId)
+            // orderBy("date", "desc") // Removed to avoid composite index requirement
         );
 
         return onSnapshot(q, (snapshot) => {
@@ -49,6 +50,10 @@ export const pickupService = {
                 id: doc.id,
                 ...doc.data()
             })) as Pickup[];
+
+            // Sort client-side
+            pickups.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
             callback(pickups);
         }, (error) => {
             console.error("Error in subscribeToUserPickups:", error);

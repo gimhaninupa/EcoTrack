@@ -12,9 +12,12 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 
+import { useNavigate } from 'react-router-dom';
+
 export function ResidentDashboard() {
   const { user } = useAuth();
   const { services } = useService();
+  const navigate = useNavigate();
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [requestType, setRequestType] = useState('Bulk Pickup');
   const [requestLocation, setRequestLocation] = useState(user?.address || user?.location || '');
@@ -52,7 +55,9 @@ export function ResidentDashboard() {
     if (!user) return;
     const address = user.address || user.location;
     if (!user.name || !address) {
-      alert("Please update your profile with Name and Address in Settings before requesting services.");
+      if (window.confirm("Please update your profile with Name and Address in Settings before requesting services. Go to Settings now?")) {
+        navigate('/resident/settings');
+      }
       return;
     }
 
@@ -208,8 +213,8 @@ export function ResidentDashboard() {
                       </div>
                       <div className="text-right">
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${req.status === 'completed' ? 'bg-forest-50 text-forest-700' :
-                            req.status === 'accepted' ? 'bg-amber-50 text-amber-700' :
-                              'bg-neutral-100 text-neutral-600'
+                          req.status === 'accepted' ? 'bg-amber-50 text-amber-700' :
+                            'bg-neutral-100 text-neutral-600'
                           }`}>
                           {req.status}
                         </span>

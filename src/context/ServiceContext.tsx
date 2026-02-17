@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { issueService, Issue as ServiceIssue } from '../services/issueService';
 import { pickupService } from '../services/pickupService';
 import { billingService } from '../services/billingService';
+import { truckService, Truck } from '../services/truckService';
 
 export interface Pickup {
     id: string;
@@ -61,7 +62,7 @@ export interface PaymentMethod {
 export interface Transaction {
     id: string;
     date: string;
-    amount: string;
+    amount: number;
     status: 'Paid' | 'Pending' | 'Failed';
     method: string;
 }
@@ -84,18 +85,21 @@ export interface Service {
 interface ServiceContextType {
     services: Service[];
     pickups: Pickup[];
+    trucks: Truck[]; // Expose available trucks
     activeTracking: TrackingStatus | null;
     notifications: Notification[];
     issues: Issue[];
     billing: BillingState;
     createService: (service: Omit<Service, 'id'>) => void;
-    schedulePickup: (date: Date, type: Pickup['type'], location: string) => void;
+    schedulePickup: (date: Date, type: Pickup['type'], location: string, truckId?: string) => void;
     reportIssue: (issue: Omit<Issue, 'id' | 'status' | 'date' | 'createdAt' | 'userId' | 'residentName' | 'address' | 'priority'>) => Promise<void>;
     startTracking: (pickupId: string) => void;
     simulateMovement: () => void;
     addNotification: (title: string, message: string, type?: Notification['type']) => void;
     addPaymentMethod: (method: string) => void;
     payBill: (amount: number) => void;
+    updatePickup: (id: string, updates: Partial<Pickup>) => Promise<void>;
+    deletePickup: (id: string) => Promise<void>;
 }
 
 const ServiceContext = createContext<ServiceContextType | undefined>(undefined);
@@ -103,6 +107,7 @@ const ServiceContext = createContext<ServiceContextType | undefined>(undefined);
 export function ServiceProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const [pickups, setPickups] = useState<Pickup[]>([]);
+    const [trucks, setTrucks] = useState<Truck[]>([]);
     const [activeTracking, setActiveTracking] = useState<TrackingStatus | null>(null);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [issues, setIssues] = useState<Issue[]>([]);
@@ -113,15 +118,16 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Load from local storage on init (keeping pickups/billing generic for now)
-    useEffect(() => {
-        const stored = localStorage.getItem('ecotrack_pickups');
-        if (stored) {
-            setPickups(JSON.parse(stored).map((p: any) => ({
-                ...p,
-                date: new Date(p.date)
-            })));
-        }
-    }, []);
+    // REMOVED: Conflicting with Firestore source of truth
+    // useEffect(() => {
+    //     const stored = localStorage.getItem('ecotrack_pickups');
+    //     if (stored) {
+    //         setPickups(JSON.parse(stored).map((p: any) => ({
+    //             ...p,
+    //             date: new Date(p.date)
+    //         })));
+    //     }
+    // }, []);
 
     // Subscribe to User Pickups
     useEffect(() => {
@@ -159,11 +165,68 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         return () => unsubscribe();
     }, [user]);
 
-
-    // Save pickups only
+    // Subscribe to User Payments (Billing)
     useEffect(() => {
-        localStorage.setItem('ecotrack_pickups', JSON.stringify(pickups));
-    }, [pickups]);
+        if (!user) {
+            setBilling(prev => ({ ...prev, history: [] }));
+            return;
+        }
+
+        const unsubscribe = billingService.subscribeToUserPayments(user.uid, (fetchedPayments) => {
+            // Map to Transaction interface
+            const transactions: Transaction[] = fetchedPayments.map(p => ({
+                id: p.id || 'unknown',
+                date: new Date(p.date).toLocaleDateString(),
+                amount: p.amount,
+                status: p.status,
+                method: p.method
+            }));
+
+            // Calculate Balance (Sum of Pending Payments)
+            const pendingTotal = fetchedPayments
+                .filter(p => p.status === 'Pending')
+                .reduce((sum, p) => sum + p.amount, 0);
+
+            setBilling(prev => ({
+                ...prev,
+                history: transactions,
+                balance: pendingTotal // Update calculated balance
+            }));
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Subscribe to Active Trucks (Real-time Tracking)
+    useEffect(() => {
+        // Find any active truck
+        const unsubscribe = truckService.subscribeToAllTrucks((fetchedTrucks) => {
+            setTrucks(fetchedTrucks); // Update list of all trucks
+            const activeTruck = fetchedTrucks.find(t => t.status === 'En Route' || t.status === 'Collection');
+
+            if (activeTruck) {
+                setActiveTracking({
+                    isActive: true,
+                    location: activeTruck.location || 'Unknown',
+                    coordinates: [activeTruck.latitude || 6.8533, activeTruck.longitude || 80.0575],
+                    eta: activeTruck.eta || 'Calculating...',
+                    status: activeTruck.status === 'En Route' ? 'En Route' : 'Arrived',
+                    progress: activeTruck.currentStopIndex ? (activeTruck.currentStopIndex / 5) * 100 : 0, // Approx progress
+                    destination: activeTruck.headingTo || 'Next Stop'
+                });
+            } else {
+                setActiveTracking(null);
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+
+    // Save pickups only - REMOVED
+    // useEffect(() => {
+    //     localStorage.setItem('ecotrack_pickups', JSON.stringify(pickups));
+    // }, [pickups]);
 
     const addNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
         const newNotification: Notification = {
@@ -177,7 +240,8 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         setNotifications(prev => [newNotification, ...prev]);
     };
 
-    const schedulePickup = async (date: Date, type: Pickup['type']) => {
+
+    const schedulePickup = async (date: Date, type: Pickup['type'], location: string, truckId?: string) => {
         if (!user) {
             addNotification('Error', 'You must be logged in to schedule a pickup.', 'error');
             return;
@@ -187,11 +251,26 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             await pickupService.createPickup({
                 userId: user.uid,
                 residentName: user.name || 'Anonymous',
-                date: date.toISOString(), // Store as ISO string in Firestore
+                date: date.toISOString(),
                 type,
-                location: user.address || 'Unknown Location',
+                location: location || user.address || 'Unknown Location',
+                truckId: truckId || 'Unassigned', // Save selected truck
+                status: 'Scheduled'
             });
-            addNotification('Pickup Scheduled', `Your ${type} pickup has been scheduled for ${date.toLocaleDateString()}.`, 'success');
+
+            // Create Pending Payment Record
+            const price = WASTE_PRICES[type] || 1500;
+            await billingService.createPayment({
+                userId: user.uid,
+                residentName: user.name || 'Anonymous',
+                amount: price,
+                date: date.toISOString().split('T')[0],
+                status: 'Pending',
+                method: 'Credit Card' // Default or could be 'Unpaid'
+            });
+
+            addNotification('Pickup Scheduled', `Your ${type} pickup has been scheduled for ${date.toLocaleDateString()}. Bill: LKR ${price}`, 'success');
+            // No manual state update needed, subscription will catch it
         } catch (error) {
             console.error(error);
             addNotification('Error', 'Failed to schedule pickup.', 'error');
@@ -199,20 +278,9 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     };
 
     const startTracking = (pickupId: string) => {
-        // Find the pickup to get its location
-        const pickup = pickups.find(p => p.id === pickupId);
-        const destination = pickup ? pickup.location : 'Kottawa';
-
-        setActiveTracking({
-            isActive: true,
-            location: 'Meepe',
-            coordinates: ROUTE_WAYPOINTS[0],
-            eta: '25 mins',
-            status: 'En Route',
-            progress: 0,
-            destination
-        });
-        addNotification('Tracking Started', `Real-time tracking is now active for your pickup from Meepe to ${destination}.`, 'info');
+        // In real-time mode, tracking is automatic based on truck status.
+        // We can just trigger a notification or focus the map.
+        addNotification('Tracking Enabled', `Looking for active trucks nearby...`, 'info');
     };
 
     const reportIssue = async (issueData: Omit<Issue, 'id' | 'status' | 'date' | 'createdAt' | 'userId' | 'residentName' | 'address' | 'priority'>) => {
@@ -229,9 +297,10 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
                 address: user.address || 'Unknown Location',
                 date: new Date().toLocaleDateString(),
                 status: 'Open',
-                priority: 'Medium' // Default priority
+                priority: 'Medium'
             });
             addNotification('Issue Reported', 'Your issue has been reported successfully.', 'success');
+            // No manual state update needed
         } catch (error) {
             console.error(error);
             addNotification('Error', 'Failed to report issue. Please try again.', 'error');
@@ -239,55 +308,9 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
     };
 
     const simulateMovement = () => {
-        if (!activeTracking) return;
-
-        setActiveTracking(prev => {
-            if (!prev) return null;
-
-            // Advance progress
-            const newProgress = Math.min(prev.progress + 5, 100);
-
-            // Calculate current coordinate index based on progress
-            const totalPoints = ROUTE_WAYPOINTS.length;
-            const index = Math.floor((newProgress / 100) * (totalPoints - 1));
-            const newCoords = ROUTE_WAYPOINTS[index];
-
-            let newStatus: TrackingStatus['status'] = prev.status;
-            let newLocation = prev.location;
-            let newEta = prev.eta;
-
-            // Update details based on progress
-            if (newProgress < 20) {
-                newLocation = 'Meepe Town';
-                newEta = '20 mins';
-            } else if (newProgress < 40) {
-                newLocation = 'Meegoda';
-                newEta = '15 mins';
-            } else if (newProgress < 60) {
-                newLocation = 'Godagama';
-                newEta = '10 mins';
-            } else if (newProgress < 80) {
-                newLocation = 'Homagama';
-                newEta = '5 mins';
-            } else if (newProgress < 100) {
-                newLocation = `Arriving at ${prev.destination}`;
-                newEta = '1 min';
-                newStatus = 'Arrived';
-            } else {
-                newStatus = 'Completed';
-                newLocation = 'Completed';
-                newEta = '--';
-            }
-
-            return {
-                ...prev,
-                progress: newProgress,
-                status: newStatus,
-                location: newLocation,
-                coordinates: newCoords,
-                eta: newEta
-            };
-        });
+        // Client-side simulation is disabled in favor of Real-time Firestore updates.
+        // This function is kept to avoid breaking consumers but does nothing.
+        console.log("Simulation is handled by backend/admin.");
     };
 
     // Services Management
@@ -340,27 +363,24 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            await billingService.createPayment({
-                userId: user.uid,
-                residentName: user.name || 'Anonymous',
-                amount: amount,
-                method: 'Credit Card', // Hardcoded for now
-                status: 'Paid',
-                date: new Date().toISOString().split('T')[0]
-            });
+            // Find all pending payments
+            const pendingPayments = billing.history.filter(t => t.status === 'Pending');
 
-            // Update local state
-            setBilling(prev => ({
-                ...prev,
-                balance: Math.max(0, prev.balance - amount),
-                history: [{
-                    id: Math.random().toString(36).substr(2, 9),
-                    date: new Date().toLocaleDateString(),
-                    amount: `LKR ${amount.toFixed(2)}`,
+            if (pendingPayments.length === 0) {
+                addNotification('Info', 'No pending bills to pay.', 'info');
+                return;
+            }
+
+            // Update each pending payment to 'Paid'
+            const updatePromises = pendingPayments.map(payment =>
+                billingService.updatePayment(payment.id, {
                     status: 'Paid',
-                    method: 'Credit Card'
-                }, ...prev.history]
-            }));
+                    method: 'Credit Card',
+                    date: new Date().toISOString().split('T')[0]
+                })
+            );
+
+            await Promise.all(updatePromises);
 
             addNotification('Payment Successful', `Payment of LKR ${amount.toFixed(2)} was successful.`, 'success');
         } catch (error) {
@@ -369,11 +389,45 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const updatePickup = async (id: string, updates: Partial<Pickup>) => {
+        try {
+            await pickupService.updatePickup(id, updates);
+            addNotification('Pickup Updated', 'Your pickup schedule has been updated.', 'info');
+        } catch (error) {
+            console.error("Error updating pickup:", error);
+            addNotification('Error', 'Failed to update pickup.', 'error');
+        }
+    };
+
+    const deletePickup = async (id: string) => {
+        try {
+            await pickupService.deletePickup(id);
+            addNotification('Pickup Cancelled', 'Your pickup has been cancelled.', 'warning');
+        } catch (error) {
+            console.error("Error cancelling pickup:", error);
+            addNotification('Error', 'Failed to cancel pickup.', 'error');
+        }
+    };
+
     return (
         <ServiceContext.Provider value={{
-            services, pickups, activeTracking, notifications, billing, issues,
-            schedulePickup, startTracking, simulateMovement, addNotification,
-            addPaymentMethod, payBill, reportIssue, createService
+            services,
+            pickups,
+            trucks,
+            activeTracking,
+            notifications,
+            issues,
+            billing,
+            createService,
+            schedulePickup,
+            reportIssue,
+            startTracking,
+            simulateMovement,
+            addNotification,
+            addPaymentMethod,
+            payBill,
+            updatePickup,
+            deletePickup
         }}>
             {children}
         </ServiceContext.Provider>

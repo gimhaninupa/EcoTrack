@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { ROUTE_WAYPOINTS } from '../../services/truckService';
 
 // Fix for default marker icon in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -230,6 +231,41 @@ export function AdminFleetTracking() {
         } else if (selectedTruck) {
             alert(`No contact number for ${selectedTruck.driver}.`);
         }
+    };
+
+    const handleStartSimulation = async () => {
+        if (!selectedTruck) return;
+
+        const truckId = selectedTruck.id;
+        console.log(`Starting simulation for ${truckId}`);
+
+        // Set to En Route
+        await updateTruck(truckId, { status: 'En Route', location: 'Depot' });
+
+        // Simple simulation loop
+        let step = 0;
+        const totalSteps = ROUTE_WAYPOINTS.length;
+
+        const interval = setInterval(async () => {
+            if (step >= totalSteps) {
+                clearInterval(interval);
+                await updateTruck(truckId, { status: 'Collection', location: 'Destination Reached' });
+                return;
+            }
+
+            const [lat, lng] = ROUTE_WAYPOINTS[step];
+            // Update firestore
+            await updateTruck(truckId, {
+                latitude: lat,
+                longitude: lng,
+                location: `En Route - Step ${step + 1}`,
+                currentStopIndex: step,
+                headingTo: 'Next Stop',
+                eta: `${(totalSteps - step) * 5} mins`
+            });
+
+            step++;
+        }, 3000); // Update every 3 seconds
     };
 
     return (
@@ -463,6 +499,9 @@ export function AdminFleetTracking() {
                                     <div className="flex gap-2">
                                         <Button size="sm" onClick={handleContactDriver}>
                                             <Phone className="mr-2 h-4 w-4" /> Contact
+                                        </Button>
+                                        <Button size="sm" variant="default" onClick={handleStartSimulation} className="bg-blue-600 hover:bg-blue-700">
+                                            Start Route
                                         </Button>
                                     </div>
                                 </div>

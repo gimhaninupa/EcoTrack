@@ -2,28 +2,14 @@ import React, { useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Map } from '../../components/shared/Map';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { Clock, MapPin, Play } from 'lucide-react';
+
+import { Clock, MapPin } from 'lucide-react';
 import { useService } from '../../context/ServiceContext';
 
 export function ResidentTracking() {
-  const { activeTracking, startTracking, simulateMovement, pickups } = useService();
+  const { activeTracking } = useService();
 
-  // Simulate movement interval if active
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (activeTracking?.isActive && activeTracking.status !== 'Completed') {
-      interval = setInterval(simulateMovement, 3000); // Move every 3 seconds
-    }
-    return () => clearInterval(interval);
-  }, [activeTracking]);
-
-  const handleStartDemo = () => {
-    // Try to find a scheduled pickup to use its location
-    const upcomingPickup = pickups.find(p => p.status === 'Scheduled');
-    const pickupId = upcomingPickup ? upcomingPickup.id : 'demo-id';
-    startTracking(pickupId);
-  };
+  // Real-time tracking is now handled by ServiceContext subscriptions
 
   return <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
     <div className="flex items-center justify-between flex-shrink-0">
@@ -42,9 +28,10 @@ export function ResidentTracking() {
           Live Updates Active
         </Badge>
       ) : (
-        <Button size="sm" onClick={handleStartDemo} variant="outline">
-          <Play className="h-3 w-3 mr-2" /> Start Demo Simulation
-        </Button>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Clock className="h-3 w-3 mr-2" />
+          Waiting for active truck...
+        </Badge>
       )}
     </div>
 
