@@ -8,40 +8,45 @@ import { ShieldCheck } from 'lucide-react';
 
 export function LoginAdmin() {
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, user } = useAuth();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 1. Fix Clean Redirect (Race Condition Fix)
+    React.useEffect(() => {
+        if (user) {
+            // Check if user is actually an admin
+            // We can check local role or email for super admin
+            const isSuperAdmin = user.email?.toLowerCase() === 'admin@ecotrack.lk';
+
+            if (user.role === 'admin' || isSuperAdmin) {
+                navigate('/admin/dashboard', { replace: true });
+            } else {
+                // Logged in but not admin? Redirect to resident or show error?
+                // For now, let's redirect to resident dashboard to avoid getting stuck
+                navigate('/resident/dashboard', { replace: true });
+            }
+        }
+    }, [user, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
 
         try {
-            const user = await login(formData.email, formData.password);
+            // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
+            // The useEffect above will handle the redirect.
+            await login(formData.email, formData.password);
 
-            // Check if user is actually an admin
-            if (formData.email.toLowerCase() !== 'admin@ecotrack.lk') {
-                // Try to fetch profile to see if role is admin
-                try {
-                    const { userService } = await import('../../services/userService');
-                    const profile = await userService.getUserProfile(user.uid);
-                    if (profile?.role !== 'admin') {
-                        throw new Error('Access Denied: Administrators only');
-                    }
-                } catch (err) {
-                    // If fetch fails or role mismatch, assume strictly super admin for now or fail
-                    if (formData.email.toLowerCase() !== 'admin@ecotrack.lk') {
-                        throw new Error('Access Denied: Administrators only');
-                    }
-                }
-            }
+            // We don't need to do manual checks here anymore because the useEffect
+            // will catch the new 'user' state. 
+            // However, we can keep a check for immediate feedback if needed, 
+            // but relying on the effect is safer for the race condition.
 
-            navigate('/admin/dashboard');
         } catch (error: any) {
             console.error(error);
             alert(error.message || 'Login failed');
-        } finally {
-            setIsSubmitting(false);
+            setIsSubmitting(false); // Only stop loading on error, otherwise wait for redirect
         }
     };
 
