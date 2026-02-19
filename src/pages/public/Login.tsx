@@ -43,11 +43,13 @@ export function Login() {
       if (isSuperAdmin) {
         setError("Access Denied: This login is for Residents only. Admins use /admin/login");
         // Optionally logout immediately to clear the session so they don't get stuck
-        // await logout(); 
+        await logout();
+      } else {
+        navigate('/resident/dashboard', { replace: true });
       }
 
     } catch (error: any) {
-      console.error(error);
+      console.error("Login failed:", error);
       setError(error.message || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);

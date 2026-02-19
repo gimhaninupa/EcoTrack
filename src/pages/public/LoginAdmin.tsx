@@ -28,18 +28,15 @@ export function LoginAdmin() {
 
         try {
             // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
-            // The useEffect above will handle the redirect.
             await login(formData.email, formData.password);
 
-            // We don't need to do manual checks here anymore because the useEffect
-            // will catch the new 'user' state. 
-            // However, we can keep a check for immediate feedback if needed, 
-            // but relying on the effect is safer for the race condition.
+            // Navigate to dashboard on success
+            navigate('/admin/dashboard', { replace: true });
 
         } catch (error: any) {
             console.error(error);
             alert(error.message || 'Login failed');
-            setIsSubmitting(false); // Only stop loading on error, otherwise wait for redirect
+            setIsSubmitting(false); // Only stop loading on error
         }
     };
 
