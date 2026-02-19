@@ -12,15 +12,21 @@ export function LoginAdmin() {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 1. Force Logout on Mount
+    // 1. Auto-Redirect if already logged in (Fixes race conditions)
     React.useEffect(() => {
-        const performLogout = async () => {
-            if (user) {
-                await logout();
+        if (user) {
+            // Check if user is actually an admin
+            // We can check local role or email for super admin
+            const isSuperAdmin = user.email?.toLowerCase() === 'admin@ecotrack.lk';
+
+            if (user.role === 'admin' || isSuperAdmin) {
+                navigate('/admin/dashboard', { replace: true });
+            } else {
+                // If resident logs in here effectively, send them to their dashboard
+                navigate('/resident/dashboard', { replace: true });
             }
-        };
-        performLogout();
-    }, []);
+        }
+    }, [user, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,15 +34,13 @@ export function LoginAdmin() {
 
         try {
             // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
+            // The useEffect above will handle the redirect once 'user' is populated.
             await login(formData.email, formData.password);
-
-            // Navigate to dashboard on success
-            navigate('/admin/dashboard', { replace: true });
 
         } catch (error: any) {
             console.error(error);
             alert(error.message || 'Login failed');
-            setIsSubmitting(false); // Only stop loading on error
+            setIsSubmitting(false); // Only stop loading on error, otherwise wait for redirect
         }
     };
 

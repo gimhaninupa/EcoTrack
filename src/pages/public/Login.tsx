@@ -17,15 +17,17 @@ export function Login() {
   });
   const [error, setError] = useState('');
 
-  // 1. Force Logout on Mount (Clean Slate)
+  // 1. Auto-Redirect if already logged in
   React.useEffect(() => {
-    const performLogout = async () => {
-      if (user) {
-        await logout();
+    if (user) {
+      if (user.role === 'resident') {
+        navigate('/resident/dashboard', { replace: true });
+      } else if (user.role === 'admin') {
+        // If admin lands here, redirect to admin dashboard
+        navigate('/admin/dashboard', { replace: true });
       }
-    };
-    performLogout();
-  }, []);
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,25 +37,16 @@ export function Login() {
     try {
       // 1. Authenticate
       // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
-      const userCredential = await login(formData.email, formData.password);
-
-      // 2. Initial Admin Check
-      const isSuperAdmin = formData.email.toLowerCase() === 'admin@ecotrack.lk';
-
-      if (isSuperAdmin) {
-        setError("Access Denied: This login is for Residents only. Admins use /admin/login");
-        // Optionally logout immediately to clear the session so they don't get stuck
-        await logout();
-      } else {
-        navigate('/resident/dashboard', { replace: true });
-      }
+      // The useEffect above will handle the redirect.
+      await login(formData.email, formData.password);
 
     } catch (error: any) {
       console.error("Login failed:", error);
       setError(error.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Only stop loading on error
     }
+    // Do NOT set isLoading(false) in finally block if successful, 
+    // because we want the button to stay loading until redirect happens.
   };
 
   return <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
