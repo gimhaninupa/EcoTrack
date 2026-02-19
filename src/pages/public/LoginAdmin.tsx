@@ -8,26 +8,19 @@ import { ShieldCheck } from 'lucide-react';
 
 export function LoginAdmin() {
     const navigate = useNavigate();
-    const { login, user } = useAuth();
+    const { login, logout, user } = useAuth();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // 1. Fix Clean Redirect (Race Condition Fix)
+    // 1. Force Logout on Mount
     React.useEffect(() => {
-        if (user) {
-            // Check if user is actually an admin
-            // We can check local role or email for super admin
-            const isSuperAdmin = user.email?.toLowerCase() === 'admin@ecotrack.lk';
-
-            if (user.role === 'admin' || isSuperAdmin) {
-                navigate('/admin/dashboard', { replace: true });
-            } else {
-                // Logged in but not admin? Redirect to resident or show error?
-                // For now, let's redirect to resident dashboard to avoid getting stuck
-                navigate('/resident/dashboard', { replace: true });
+        const performLogout = async () => {
+            if (user) {
+                await logout();
             }
-        }
-    }, [user, navigate]);
+        };
+        performLogout();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

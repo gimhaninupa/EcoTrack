@@ -10,23 +10,22 @@ import { userService } from '../../services/userService';
 export function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login, logout, user } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
 
-  // 1. Fix Clean Redirect (Race Condition Fix)
+  // 1. Force Logout on Mount (Clean Slate)
   React.useEffect(() => {
-    if (user) {
-      if (user.role === 'resident') {
-        navigate('/resident/dashboard', { replace: true });
+    const performLogout = async () => {
+      if (user) {
+        await logout();
       }
-      // Note: We don't redirect admins here because this form explicitly blocks them below.
-      // But if they are ALREADY logged in as admin and land here, they might just stay here.
-    }
-  }, [user, navigate]);
+    };
+    performLogout();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,12 +35,9 @@ export function Login() {
     try {
       // 1. Authenticate
       // This will trigger onAuthStateChanged in AuthContext, which updates 'user'
-      // The useEffect above will handle the redirect for residents once 'user' is set.
       const userCredential = await login(formData.email, formData.password);
 
-      // 2. Initial Admin Check (for immediate feedback before context updates)
-      // We still check this to show the error message for admins trying to use this form.
-      // We can check the email directly or fetch profile if needed for edge cases.
+      // 2. Initial Admin Check
       const isSuperAdmin = formData.email.toLowerCase() === 'admin@ecotrack.lk';
 
       if (isSuperAdmin) {
