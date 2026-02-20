@@ -9,10 +9,11 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export function ResidentPaymentHistory() {
-  const { billing, addPaymentMethod, payBill } = useService();
+  const { billing, addPaymentMethod, payBill, paySingleBill } = useService();
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'summary' | 'processing' | 'success'>('summary');
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
 
   // Generate and download receipt
   const handleDownloadReceipt = (transaction: any) => {
@@ -68,7 +69,8 @@ export function ResidentPaymentHistory() {
     }
   };
 
-  const handlePayClick = () => {
+  const handlePayClick = (transaction?: any) => {
+    setSelectedTransaction(transaction || null);
     setShowPaymentModal(true);
     setPaymentStep('summary');
   };
@@ -77,12 +79,22 @@ export function ResidentPaymentHistory() {
     setPaymentStep('processing');
     setIsProcessing(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      payBill(billing.balance);
+    try {
+      if (selectedTransaction) {
+        await paySingleBill(selectedTransaction.id, selectedTransaction.amount);
+      } else {
+        await payBill(billing.balance);
+      }
+      // Wait a bit for UI to settle
+      setTimeout(() => {
+        setIsProcessing(false);
+        setPaymentStep('success');
+      }, 1500);
+    } catch (error) {
+      console.error(error);
       setIsProcessing(false);
-      setPaymentStep('success');
-    }, 2000);
+      alert("Payment failed. Please try again.");
+    }
   };
 
   const columns = [{
@@ -103,13 +115,22 @@ export function ResidentPaymentHistory() {
   }, {
     header: 'Status',
     accessorKey: 'status' as const,
-    cell: (item: any) => <Badge variant="success">{item.status}</Badge>
+    cell: (item: any) => <Badge variant={item.status === 'Paid' ? 'success' : item.status === 'Pending' ? 'warning' : 'destructive'}>{item.status}</Badge>
   }, {
     header: 'Actions',
     accessorKey: 'id' as const,
-    cell: (item: any) => <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownloadReceipt(item)}>
-      <Download className="h-4 w-4 text-neutral-500" />
-    </Button>
+    cell: (item: any) => (
+      <div className="flex items-center gap-2">
+        {item.status === 'Pending' && (
+          <Button size="sm" className="h-8 px-3 bg-forest-600 hover:bg-forest-700 text-white" onClick={() => handlePayClick(item)}>
+            Pay
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDownloadReceipt(item)}>
+          <Download className="h-4 w-4 text-neutral-500" />
+        </Button>
+      </div>
+    )
   }];
 
   return <div className="space-y-6 relative">
@@ -132,8 +153,8 @@ export function ResidentPaymentHistory() {
         <div>
           <div className="text-3xl font-bold text-neutral-900">LKR {billing.balance.toFixed(2)}</div>
         </div>
-        <Button className="w-full" onClick={handlePayClick} disabled={billing.balance <= 0}>
-          {billing.balance > 0 ? 'Pay Balance' : 'All Paid'}
+        <Button className="w-full" onClick={() => handlePayClick(null)} disabled={billing.balance <= 0}>
+          {billing.balance > 0 ? 'Pay Total Balance' : 'All Paid'}
         </Button>
       </Card>
 
@@ -188,21 +209,29 @@ export function ResidentPaymentHistory() {
               </div>
               <div className="bg-neutral-50 p-4 rounded-lg space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-600">Total Amount</span>
-                  <span className="font-semibold">LKR {billing.balance.toFixed(2)}</span>
+                  <span className="text-neutral-600">Payment Type</span>
+                  <span className="font-medium">{selectedTransaction ? 'Single Invoice' : 'Total Balance'}</span>
                 </div>
+                {selectedTransaction && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-neutral-600">Invoice ID</span>
+                    <span className="font-mono text-xs">{selectedTransaction.id}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-600">Payment Method</span>
                   <span>Visa •••• 4242</span>
                 </div>
                 <div className="border-t border-neutral-200 pt-2 flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>LKR {billing.balance.toFixed(2)}</span>
+                  <span>LKR {selectedTransaction ? selectedTransaction.amount.toFixed(2) : billing.balance.toFixed(2)}</span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-                <Button onClick={confirmPayment}>Confirm Payment</Button>
+                <Button onClick={confirmPayment}>
+                  Pay LKR {selectedTransaction ? selectedTransaction.amount.toFixed(2) : billing.balance.toFixed(2)}
+                </Button>
               </div>
             </div>
           )}
@@ -225,8 +254,7 @@ export function ResidentPaymentHistory() {
                 <p className="text-neutral-500">Your transaction has been completed.</p>
               </div>
               <div className="w-full space-y-3">
-                {/* In a real app, we'd get the transaction ID from the response */}
-                <Button variant="outline" className="w-full" onClick={() => handleDownloadReceipt(billing.history[0])}>
+                <Button variant="outline" className="w-full" onClick={() => handleDownloadReceipt(selectedTransaction || billing.history[0])}>
                   <Download className="h-4 w-4 mr-2" /> Download Receipt
                 </Button>
                 <Button className="w-full" onClick={() => setShowPaymentModal(false)}>

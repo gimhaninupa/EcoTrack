@@ -98,6 +98,7 @@ interface ServiceContextType {
     addNotification: (title: string, message: string, type?: Notification['type']) => void;
     addPaymentMethod: (method: string) => void;
     payBill: (amount: number) => void;
+    paySingleBill: (id: string, amount: number) => Promise<void>;
     updatePickup: (id: string, updates: Partial<Pickup>) => Promise<void>;
     deletePickup: (id: string) => Promise<void>;
 }
@@ -409,6 +410,27 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const paySingleBill = async (id: string, amount: number) => {
+        if (!user) {
+            addNotification('Error', 'You must be logged in to pay bills.', 'error');
+            return;
+        }
+
+        try {
+            await billingService.updatePayment(id, {
+                status: 'Paid',
+                method: 'Credit Card',
+                date: new Date().toISOString().split('T')[0]
+            });
+
+            addNotification('Payment Successful', `Payment of LKR ${amount.toFixed(2)} was successful.`, 'success');
+        } catch (error) {
+            console.error("Single bill payment failed", error);
+            addNotification('Error', 'Payment failed. Please try again.', 'error');
+            throw error;
+        }
+    };
+
     return (
         <ServiceContext.Provider value={{
             services,
@@ -426,6 +448,7 @@ export function ServiceProvider({ children }: { children: React.ReactNode }) {
             addNotification,
             addPaymentMethod,
             payBill,
+            paySingleBill,
             updatePickup,
             deletePickup
         }}>
