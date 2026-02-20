@@ -57,8 +57,8 @@ export const billingService = {
     subscribeToUserPayments(userId: string, callback: (payments: Payment[]) => void) {
         const q = query(
             collection(db, "payments"),
-            where("userId", "==", userId),
-            orderBy("createdAt", "desc")
+            where("userId", "==", userId)
+            // orderBy("createdAt", "desc") // Removed to avoid composite index requirement
         );
 
         return onSnapshot(q, (snapshot) => {
@@ -66,6 +66,13 @@ export const billingService = {
                 id: doc.id,
                 ...doc.data()
             })) as Payment[];
+            // Sort client-side to ensure newest first
+            payments.sort((a, b) => {
+                const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.date);
+                const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.date);
+                return dateB.getTime() - dateA.getTime();
+            });
+
             callback(payments);
         }, (error) => {
             console.error("Error in subscribeToUserPayments:", error);
