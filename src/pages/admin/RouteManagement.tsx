@@ -169,8 +169,8 @@ export function AdminRouteManagement() {
   }];
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
-      <div className="flex items-center justify-between flex-shrink-0">
+    <div className="h-auto lg:h-[calc(100vh-8rem)] flex flex-col space-y-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between flex-shrink-0 gap-4 sm:gap-0">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
             Route Management
@@ -260,8 +260,8 @@ export function AdminRouteManagement() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        <div className="lg:col-span-2 h-full flex flex-col relative">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:flex-1 lg:min-h-0">
+        <div className="lg:col-span-2 h-[400px] lg:h-full flex flex-col relative">
           <Card className="flex-1 p-0 overflow-hidden border-0 shadow-md relative z-0">
             <MapContainer
               center={[6.9271, 79.8612]}
@@ -324,7 +324,7 @@ export function AdminRouteManagement() {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-4 overflow-y-auto">
+        <div className="flex flex-col gap-4 lg:overflow-y-auto">
           <Card className="flex-1">
             <div className="p-4 border-b border-neutral-100">
               <h3 className="font-semibold text-sm">Active Routes</h3>
