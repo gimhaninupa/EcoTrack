@@ -26,3 +26,15 @@ A comprehensive waste management platform designed to connect residents, adminis
 *   **State Management:** React Context API
 *   **Routing:** React Router DOM
 *   **Icons:** Lucide React
+
+---
+
+## 🚀 Live Demo & Credentials
+
+### 🔗 Quick Links
+- **Resident Panel:** [https://eco-track-delta-gules.vercel.app/](https://eco-track-delta-gules.vercel.app/)
+- **Admin Panel:** [https://eco-track-delta-gules.vercel.app/admin/login](https://eco-track-delta-gules.vercel.app/admin/login)
+
+### 🔑 Admin Credentials
+- **Email:** `admin@ecotrack.lk`
+- **Password:** `123456789`
